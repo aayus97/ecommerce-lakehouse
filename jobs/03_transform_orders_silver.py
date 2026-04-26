@@ -12,7 +12,8 @@ builder = (
 
 spark = configure_spark_with_delta_pip(builder).getOrCreate()
 
-bronze = spark.read.format("delta").load("data/bronze/orders")
+# bronze = spark.read.format("delta").load("data/bronze/orders")
+bronze = spark.read.format("delta").load("data/bronze/orders_validated")
 
 silver = (
     bronze
