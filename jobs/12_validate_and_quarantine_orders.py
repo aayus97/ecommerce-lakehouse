@@ -1,5 +1,9 @@
 from pyspark.sql.functions import col
 from src.spark_session import get_spark
+from src.logger import get_logger
+from src.metrics import write_metric
+
+logger = get_logger("validate_orders")
 
 spark = get_spark("ValidateAndQuarantineOrders")
 
@@ -24,8 +28,11 @@ valid_orders = orders.filter(~invalid_condition)
 invalid_count = invalid_orders.count()
 valid_count = valid_orders.count()
 
-print(f"Valid rows: {valid_count}")
-print(f"Invalid rows: {invalid_count}")
+# print(f"Valid rows: {valid_count}")
+# print(f"Invalid rows: {invalid_count}")
+
+logger.info(f"Valid rows: {valid_count}")
+logger.info(f"Invalid rows: {invalid_count}")
 
 if invalid_count > 0:
     invalid_orders.write.format("delta").mode("overwrite").save("data/quarantine/orders")
@@ -33,5 +40,15 @@ if invalid_count > 0:
 
 valid_orders.write.format("delta").mode("overwrite").save("data/bronze/orders_validated")
 print("Valid rows written to data/bronze/orders_validated")
+
+write_metric(
+    "orders_data_quality",
+    {
+        "valid_rows": valid_count,
+        "invalid_rows": invalid_count,
+        "quarantine_path": "data/quarantine/orders",
+        "validated_path": "data/bronze/orders_validated",
+    },
+)
 
 spark.stop()

@@ -1,0 +1,27 @@
+pipeline:
+  name: ecommerce_lakehouse
+
+  steps:
+    - name: bronze_merge
+      module: jobs.08_incremental_orders_bronze_merge
+      enabled: true
+
+    - name: validate_orders
+      module: jobs.12_validate_and_quarantine_orders
+      enabled: true
+
+    - name: silver_orders
+      module: jobs.03_transform_orders_silver
+      enabled: true
+
+    - name: gold_daily_sales
+      module: jobs.04_create_gold_sales_summary
+      enabled: true
+
+    - name: gold_revenue
+      module: jobs.07_create_gold_revenue_by_category_country
+      enabled: true
+    
+    - name: collect_gold_metrics
+      module: jobs.14_collect_gold_metrics
+      enabled: true

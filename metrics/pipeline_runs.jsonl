@@ -1,0 +1,2 @@
+{"metric_name": "pipeline_runs", "timestamp": "2026-04-26T19:45:00.602943", "pipeline_name": "ecommerce_lakehouse", "status": "success", "duration_seconds": 65.59}
+{"metric_name": "pipeline_runs", "timestamp": "2026-04-26T19:48:09.966414", "pipeline_name": "ecommerce_lakehouse", "status": "success", "duration_seconds": 73.27}
