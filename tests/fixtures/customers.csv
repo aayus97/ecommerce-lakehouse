@@ -1,0 +1,5 @@
+customer_id,customer_name,email,country,signup_date
+101,Alice Johnson,Alice@Example.com,France,2025-11-01
+102,Bob Smith,BOB@Example.com,Germany,2025-11-05
+103,Charlie Brown,charlie@example.com,France,2025-12-10
+104,Diana Prince,diana@example.com,Spain,2025-12-15

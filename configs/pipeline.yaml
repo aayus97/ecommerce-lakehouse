@@ -5,23 +5,40 @@ pipeline:
     - name: bronze_merge
       module: jobs.08_incremental_orders_bronze_merge
       enabled: true
+      retries: 2
 
     - name: validate_orders
       module: jobs.12_validate_and_quarantine_orders
       enabled: true
+      retries: 1
+      depends_on:
+        - bronze_merge
 
     - name: silver_orders
       module: jobs.03_transform_orders_silver
       enabled: true
+      retries: 1
+      depends_on:
+        - validate_orders
 
     - name: gold_daily_sales
       module: jobs.04_create_gold_sales_summary
       enabled: true
+      retries: 1
+      depends_on:
+        - silver_orders
 
     - name: gold_revenue
       module: jobs.07_create_gold_revenue_by_category_country
       enabled: true
-    
+      retries: 1
+      depends_on:
+        - silver_orders
+
     - name: collect_gold_metrics
       module: jobs.14_collect_gold_metrics
       enabled: true
+      retries: 1
+      depends_on:
+        - gold_daily_sales
+        - gold_revenue

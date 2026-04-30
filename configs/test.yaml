@@ -1,0 +1,33 @@
+environment: test
+
+paths:
+  raw: tests/fixtures
+  bronze: /tmp/ecommerce-lakehouse-test/bronze
+  silver: /tmp/ecommerce-lakehouse-test/silver
+  gold: /tmp/ecommerce-lakehouse-test/gold
+  quarantine: /tmp/ecommerce-lakehouse-test/quarantine
+  metrics: /tmp/ecommerce-lakehouse-test/metrics
+
+tables:
+  orders_raw: tests/fixtures/orders_valid.csv
+  orders_batch_2: tests/fixtures/orders_valid.csv
+  orders_bad_batch: tests/fixtures/orders_invalid.csv
+  customers_raw: tests/fixtures/customers.csv
+  products_raw: tests/fixtures/products.csv
+
+  orders_bronze: /tmp/ecommerce-lakehouse-test/bronze/orders
+  orders_validated: /tmp/ecommerce-lakehouse-test/bronze/orders_validated
+  orders_quarantine: /tmp/ecommerce-lakehouse-test/quarantine/orders
+
+  orders_silver: /tmp/ecommerce-lakehouse-test/silver/orders
+  customers_bronze: /tmp/ecommerce-lakehouse-test/bronze/customers
+  products_bronze: /tmp/ecommerce-lakehouse-test/bronze/products
+  customers_silver: /tmp/ecommerce-lakehouse-test/silver/customers
+  products_silver: /tmp/ecommerce-lakehouse-test/silver/products
+
+  daily_sales_summary: /tmp/ecommerce-lakehouse-test/gold/daily_sales_summary
+  revenue_by_category_country: /tmp/ecommerce-lakehouse-test/gold/revenue_by_category_country
+
+data_quality:
+  invalid_percentage_threshold: 5.0
+  orders_validation_summary_path: /tmp/ecommerce-lakehouse-test/metrics/orders_validation_summary.json

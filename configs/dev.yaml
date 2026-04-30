@@ -1,0 +1,33 @@
+environment: dev
+
+paths:
+  raw: data/raw
+  bronze: data/bronze
+  silver: data/silver
+  gold: data/gold
+  quarantine: data/quarantine
+  metrics: metrics
+
+tables:
+  orders_raw: data/raw/orders.csv
+  orders_batch_2: data/raw/orders_batch_2.csv
+  orders_bad_batch: data/raw/orders_bad_batch.csv
+  customers_raw: data/raw/customers.csv
+  products_raw: data/raw/products.csv
+
+  orders_bronze: data/bronze/orders
+  orders_validated: data/bronze/orders_validated
+  orders_quarantine: data/quarantine/orders
+
+  orders_silver: data/silver/orders
+  customers_bronze: data/bronze/customers
+  products_bronze: data/bronze/products
+  customers_silver: data/silver/customers
+  products_silver: data/silver/products
+
+  daily_sales_summary: data/gold/daily_sales_summary
+  revenue_by_category_country: data/gold/revenue_by_category_country
+
+data_quality:
+  invalid_percentage_threshold: 5.0
+  orders_validation_summary_path: metrics/orders_validation_summary.json

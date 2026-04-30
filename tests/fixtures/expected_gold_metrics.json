@@ -1,0 +1,45 @@
+{
+  "daily_sales_summary": [
+    {
+      "daily_revenue": 171.0,
+      "order_date": "2026-01-01",
+      "total_orders": 2,
+      "unique_customers": 2
+    },
+    {
+      "daily_revenue": 25.5,
+      "order_date": "2026-01-02",
+      "total_orders": 1,
+      "unique_customers": 1
+    },
+    {
+      "daily_revenue": 60.0,
+      "order_date": "2026-01-03",
+      "total_orders": 1,
+      "unique_customers": 1
+    }
+  ],
+  "revenue_by_category_country": [
+    {
+      "category": "Electronics",
+      "country": "France",
+      "revenue": 76.5,
+      "total_orders": 2,
+      "unique_customers": 2
+    },
+    {
+      "category": "Electronics",
+      "country": "Germany",
+      "revenue": 120.0,
+      "total_orders": 1,
+      "unique_customers": 1
+    },
+    {
+      "category": "Home Office",
+      "country": "Germany",
+      "revenue": 60.0,
+      "total_orders": 1,
+      "unique_customers": 1
+    }
+  ]
+}

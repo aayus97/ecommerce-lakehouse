@@ -1,18 +1,27 @@
+from pathlib import Path
+from datetime import datetime, timezone
 import json
 import os
-from datetime import datetime
+
+from src.config import load_app_config, path_value
+
+config = load_app_config()
+
+METRICS_DIR = Path(path_value(config, "metrics"))
 
 
 def write_metric(metric_name: str, data: dict):
-    os.makedirs("metrics", exist_ok=True)
+    METRICS_DIR.mkdir(exist_ok=True)
 
-    metric_record = {
+    record = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "metric_name": metric_name,
-        "timestamp": datetime.now().isoformat(),
+        "pipeline_name": os.getenv("PIPELINE_NAME"),
+        "run_id": os.getenv("PIPELINE_RUN_ID"),
         **data,
     }
 
-    file_path = f"metrics/{metric_name}.jsonl"
+    metric_file = METRICS_DIR / f"{metric_name}.jsonl"
 
-    with open(file_path, "a") as f:
-        f.write(json.dumps(metric_record) + "\n")
+    with metric_file.open("a") as f:
+        f.write(json.dumps(record) + "\n")

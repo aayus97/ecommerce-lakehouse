@@ -1,1 +1,0 @@
-{"metric_name": "orders_data_quality", "timestamp": "2026-04-26T19:47:22.565555", "valid_rows": 8, "invalid_rows": 3, "quarantine_path": "data/quarantine/orders", "validated_path": "data/bronze/orders_validated"}

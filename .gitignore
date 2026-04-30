@@ -8,4 +8,8 @@ data/raw/
 data/bronze/
 data/silver/
 data/gold/
+data/quarantine/
+metrics/*.jsonl
+*.crc
 .env
+.dagster/
