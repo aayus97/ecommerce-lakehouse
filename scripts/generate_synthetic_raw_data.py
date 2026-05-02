@@ -9,7 +9,6 @@ from datetime import date, timedelta
 from pathlib import Path
 import random
 
-
 COUNTRIES = (
     "France",
     "Germany",
@@ -142,7 +141,9 @@ def generate_raw_data(
     )
 
 
-def _write_customers(path: Path, customer_ids: list[int], start_date: date, rng) -> None:
+def _write_customers(
+    path: Path, customer_ids: list[int], start_date: date, rng
+) -> None:
     with path.open("w", newline="") as file:
         writer = csv.writer(file)
         writer.writerow(
@@ -301,7 +302,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--orders", type=positive_int, default=100_000)
     parser.add_argument("--customers", type=positive_int, default=10_000)
     parser.add_argument("--products", type=positive_int, default=1_000)
-    parser.add_argument("--start-date", type=date.fromisoformat, default=date(2026, 1, 1))
+    parser.add_argument(
+        "--start-date", type=date.fromisoformat, default=date(2026, 1, 1)
+    )
     parser.add_argument("--days", type=positive_int, default=90)
     parser.add_argument("--batch-ratio", type=percentage, default=20.0)
     parser.add_argument("--update-ratio", type=percentage, default=5.0)
