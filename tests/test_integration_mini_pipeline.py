@@ -1,8 +1,10 @@
 import duckdb
 
 
-def query_delta_dir(connection, table_path, select_sql, order_by=None):
+def query_delta_dir(connection, table_path, select_sql, order_by=None, group_by=None):
     query = f"{select_sql} FROM read_parquet('{table_path}/**/*.parquet')"
+    if group_by:
+        query = f"{query} GROUP BY {group_by}"
     if order_by:
         query = f"{query} ORDER BY {order_by}"
 
@@ -60,7 +62,11 @@ def test_mini_pipeline_joins_dimensions_into_category_country_gold(
     category_country = query_delta_dir(
         connection,
         mini_pipeline_outputs["revenue_by_category_country"],
-        ("SELECT country, category, total_orders, unique_customers, round(revenue, 2)"),
+        (
+            "SELECT country, category, sum(total_orders), "
+            "sum(unique_customers), round(sum(revenue), 2)"
+        ),
+        group_by="country, category",
         order_by="country, category",
     )
 

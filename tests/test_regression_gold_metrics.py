@@ -8,11 +8,12 @@ EXPECTED_METRICS_PATH = (
 )
 
 
-def rows_as_dicts(connection, table_path, select_sql, columns, order_by):
-    rows = connection.execute(
-        f"{select_sql} FROM read_parquet('{table_path}/**/*.parquet') "
-        f"ORDER BY {order_by}"
-    ).fetchall()
+def rows_as_dicts(connection, table_path, select_sql, columns, order_by, group_by=None):
+    query = f"{select_sql} FROM read_parquet('{table_path}/**/*.parquet')"
+    if group_by:
+        query = f"{query} GROUP BY {group_by}"
+    query = f"{query} ORDER BY {order_by}"
+    rows = connection.execute(query).fetchall()
 
     return [dict(zip(columns, row, strict=True)) for row in rows]
 
@@ -34,9 +35,13 @@ def test_gold_metrics_match_regression_fixture(mini_pipeline_outputs):
     actual_category_country = rows_as_dicts(
         connection,
         mini_pipeline_outputs["revenue_by_category_country"],
-        "SELECT country, category, total_orders, unique_customers, round(revenue, 2)",
+        (
+            "SELECT country, category, sum(total_orders), "
+            "sum(unique_customers), round(sum(revenue), 2)"
+        ),
         ["country", "category", "total_orders", "unique_customers", "revenue"],
         "country, category",
+        group_by="country, category",
     )
 
     assert actual_daily_sales == expected["daily_sales_summary"]

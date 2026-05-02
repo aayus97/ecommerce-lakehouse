@@ -77,8 +77,8 @@ Observability` dashboard.
   slowly changing dimension semantics.
 - Referential validation exists in the validation library but the current
   validation job does not pass customer and product reference tables.
-- Gold tables are full overwrites, which is simple and reliable for the current
-  scale but not optimized for large production datasets.
+- Gold tables use partition-aware overwrites by `order_date`, but production
+  deployments still need backfill controls and retention policy.
 - Dashboard screenshots require a manual refresh workflow.
 - Access control, audit policy, retention policy, and backup/restore procedures
   are not fully implemented.

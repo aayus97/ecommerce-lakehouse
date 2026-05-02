@@ -167,6 +167,7 @@ The quarantine table includes the original order columns plus:
 | Format | Delta |
 | Grain | One row per `order_date` |
 | Writer | `jobs/04_create_gold_sales_summary.py` |
+| Write mode | Partition-aware Delta overwrite by `order_date` |
 
 | Column | Type | Definition |
 | --- | --- | --- |
@@ -181,15 +182,17 @@ The quarantine table includes the original order columns plus:
 | --- | --- |
 | Path | `data/gold/revenue_by_category_country` |
 | Format | Delta |
-| Grain | One row per `country`, `category` |
+| Grain | One row per `order_date`, `country`, `category` |
 | Writer | `jobs/07_create_gold_revenue_by_category_country.py` |
+| Write mode | Partition-aware Delta overwrite by `order_date` |
 
 | Column | Type | Definition |
 | --- | --- | --- |
+| `order_date` | date | Silver order date. |
 | `country` | string | Customer country. |
 | `category` | string | Product category. |
 | `total_orders` | bigint | Count of completed orders. |
-| `unique_customers` | bigint | Distinct customers in the group. |
+| `unique_customers` | bigint | Distinct customers in the date, country, and category group. |
 | `revenue` | double | Rounded sum of `total_amount`. |
 
 ## Metric Contracts
