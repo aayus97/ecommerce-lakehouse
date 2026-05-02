@@ -1,6 +1,11 @@
 from pyspark.sql.functions import sum, countDistinct, count
 import time
 
+from src.backfill import (
+    affected_order_dates,
+    backfill_metric_details,
+    filter_by_order_date,
+)
 from src.config import load_app_config, table_path
 from src.delta_utils import write_date_partitions_delta
 from src.metrics import write_step_metric
@@ -13,13 +18,9 @@ start_time = time.time()
 orders_silver_path = table_path(config, "orders_silver")
 daily_sales_summary_path = table_path(config, "daily_sales_summary")
 
-silver = spark.read.format("delta").load(orders_silver_path)
+silver = filter_by_order_date(spark.read.format("delta").load(orders_silver_path))
 rows_read = silver.count()
-affected_dates = [
-    row["order_date"].isoformat()
-    for row in silver.select("order_date").distinct().collect()
-    if row["order_date"] is not None
-]
+affected_dates = affected_order_dates(silver)
 
 gold = silver.groupBy("order_date").agg(
     count("order_id").alias("total_orders"),
@@ -50,6 +51,7 @@ write_step_metric(
         "write_mode": write_mode,
         "partition_columns": ["order_date"],
         "affected_dates": affected_dates,
+        **backfill_metric_details(),
     },
 )
 

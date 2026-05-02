@@ -115,6 +115,19 @@ Or, with a local Python environment:
 python run_pipeline.py
 ```
 
+Run a partition backfill for a date window:
+
+```bash
+python run_pipeline.py \
+  --start-date 2026-01-01 \
+  --end-date 2026-01-03 \
+  --steps validate_orders,silver_orders,gold_daily_sales,gold_revenue,collect_gold_metrics
+```
+
+`--steps` accepts comma-separated pipeline step names. Dependencies between
+selected steps are still honored in pipeline order; dependencies outside the
+selected set are treated as already available from previous runs.
+
 Each run gets a unique `run_id`. Run summaries, retry attempts, step IO metrics, data quality metrics, freshness metrics, and business metrics are written to the configured metrics path, which defaults to `metrics/*.jsonl` in `dev`.
 
 Orders Bronze, validated orders, Silver orders, and Gold tables are partitioned by `order_date`.
@@ -124,6 +137,8 @@ the Delta tables. If upstream data does not provide `update_timestamp`, the pipe
 uses ingestion time plus a business-column hash to make repeated identical batches stable.
 Gold jobs replace only the affected `order_date` partitions when rebuilding reporting
 tables, which avoids full table overwrites as data volume grows.
+Backfill date windows are passed to bronze, validation, silver, and gold order
+jobs so selected reruns only process matching `order_date` records.
 
 ## Object Storage Mode
 

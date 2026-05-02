@@ -10,6 +10,7 @@ from pyspark.sql.functions import (
     sum,
 )
 
+from src.backfill import backfill_metric_details
 from src.config import load_app_config, table_path
 from src.logger import get_logger
 from src.metrics import write_metric, write_step_metric
@@ -104,6 +105,7 @@ metrics = {
     "gold_table_last_updated_timestamp": latest_local_mtime(daily_sales_path),
     "daily_sales_summary_path": daily_sales_path,
     "revenue_by_category_country_path": revenue_by_category_country_path,
+    **backfill_metric_details(),
 }
 
 logger.info(f"Gold metrics: {metrics}")
@@ -118,6 +120,7 @@ write_metric(
         ],
         "daily_sales_summary_path": daily_sales_path,
         "revenue_by_category_country_path": revenue_by_category_country_path,
+        **backfill_metric_details(),
     },
 )
 
@@ -135,6 +138,7 @@ write_step_metric(
         orders_silver_path,
     ],
     output_path="metrics/*.jsonl",
+    details=backfill_metric_details(),
 )
 
 spark.stop()

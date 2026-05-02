@@ -10,7 +10,7 @@ limitations, and future work. The broader service expectations are captured in
 | --- | --- | --- |
 | Layered lakehouse | Implemented | Bronze, quarantine, silver, and gold Delta paths are configured in `configs/*.yaml`. |
 | Idempotent order upserts | Implemented | `src/delta_utils.py` merges by `order_id`, `source_update_ts`, and `record_hash`. |
-| Pipeline orchestration | Implemented | `run_pipeline.py` validates config, executes dependencies, retries steps, and emits metrics. |
+| Pipeline orchestration | Implemented | `run_pipeline.py` validates config, executes dependencies, retries steps, supports selected-step backfills, and emits metrics. |
 | Dagster orchestration surface | Implemented | Assets, retries, and schedule definitions live in `orchestration/`. |
 | Data quality quarantine | Implemented | Invalid orders are separated into `orders_quarantine` with reason fields. |
 | Contract tests | Implemented | Raw and gold schemas are tested in `tests/test_contract_table_schemas.py`. |
@@ -77,8 +77,8 @@ Observability` dashboard.
   slowly changing dimension semantics.
 - Referential validation exists in the validation library but the current
   validation job does not pass customer and product reference tables.
-- Gold tables use partition-aware overwrites by `order_date`, but production
-  deployments still need backfill controls and retention policy.
+- Gold tables use partition-aware overwrites by `order_date`; production
+  deployments still need formal retention policy.
 - Dashboard screenshots require a manual refresh workflow.
 - Access control, audit policy, retention policy, and backup/restore procedures
   are not fully implemented.
@@ -96,6 +96,7 @@ Observability` dashboard.
 7. Add automated dashboard screenshot generation in CI or a release script.
 8. Add alerting thresholds for failed runs, stale gold tables, and high invalid
    row percentages.
-9. Add backfill documentation and a parameterized date-range backfill command.
+9. Add richer backfill audit reports and operator approval records for unusual
+   late-arriving data corrections.
 10. Add a production deployment guide for cloud object storage and a managed
     orchestration service.

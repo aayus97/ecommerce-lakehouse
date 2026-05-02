@@ -1,8 +1,14 @@
 import os
 import time
 
+from src.backfill import (
+    affected_order_dates,
+    backfill_metric_details,
+    filter_by_order_date,
+    is_backfill_run,
+)
 from src.config import load_app_config, path_value, table_path
-from src.delta_utils import write_partitioned_delta
+from src.delta_utils import write_date_partitions_delta, write_partitioned_delta
 from src.logger import get_logger
 from src.metrics import write_metric, write_step_metric
 from src.order_validation import validate_orders, write_validation_summary
@@ -26,7 +32,8 @@ summary_path = quality_config.get(
     f"{path_value(config, 'metrics')}/orders_validation_summary.json",
 )
 
-orders = spark.read.format("delta").load(orders_bronze_path)
+orders = filter_by_order_date(spark.read.format("delta").load(orders_bronze_path))
+affected_dates = affected_order_dates(orders)
 customer_ids = (
     spark.read.format("delta").load(customers_bronze_path).select("customer_id")
 )
@@ -52,11 +59,30 @@ logger.info(f"Valid rows: {valid_count}")
 logger.info(f"Invalid rows: {invalid_count}")
 logger.info(f"Invalid row percentage: {invalid_percentage}%")
 
-if invalid_count > 0:
+if is_backfill_run():
+    valid_write_mode = write_date_partitions_delta(
+        spark,
+        valid_orders,
+        orders_validated_path,
+        affected_dates,
+    )
+    quarantine_write_mode = write_date_partitions_delta(
+        spark,
+        invalid_orders,
+        orders_quarantine_path,
+        affected_dates,
+    )
+elif invalid_count > 0:
     write_partitioned_delta(invalid_orders, orders_quarantine_path)
+    valid_write_mode = "overwrite"
+    quarantine_write_mode = "overwrite"
     print(f"Invalid rows written to {orders_quarantine_path}")
+else:
+    valid_write_mode = "overwrite"
+    quarantine_write_mode = "skipped"
 
-write_partitioned_delta(valid_orders, orders_validated_path)
+if not is_backfill_run():
+    write_partitioned_delta(valid_orders, orders_validated_path)
 print(f"Valid rows written to {orders_validated_path}")
 
 write_validation_summary(summary_path, summary)
@@ -83,6 +109,8 @@ write_metric(
         "summary_path": summary_path,
         "quarantine_path": orders_quarantine_path,
         "validated_path": orders_validated_path,
+        "affected_dates": affected_dates,
+        **backfill_metric_details(),
     },
 )
 
@@ -98,6 +126,10 @@ write_step_metric(
     details={
         "partition_columns": ["order_date"],
         "quarantine_path": orders_quarantine_path,
+        "affected_dates": affected_dates,
+        "valid_write_mode": valid_write_mode,
+        "quarantine_write_mode": quarantine_write_mode,
+        **backfill_metric_details(),
     },
 )
 
