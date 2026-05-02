@@ -34,7 +34,7 @@ STEP_PATH_KEYS = {
         "output": "orders_bronze",
     },
     "validate_orders": {
-        "input": "orders_bronze",
+        "input": ["orders_bronze", "customers_bronze", "products_bronze"],
         "output": ["orders_validated", "orders_quarantine"],
     },
     "silver_orders": {

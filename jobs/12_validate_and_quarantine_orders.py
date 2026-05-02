@@ -15,6 +15,8 @@ spark = get_spark("ValidateAndQuarantineOrders")
 start_time = time.time()
 
 orders_bronze_path = table_path(config, "orders_bronze")
+customers_bronze_path = table_path(config, "customers_bronze")
+products_bronze_path = table_path(config, "products_bronze")
 orders_quarantine_path = table_path(config, "orders_quarantine")
 orders_validated_path = table_path(config, "orders_validated")
 quality_config = config.get("data_quality", {})
@@ -25,10 +27,16 @@ summary_path = quality_config.get(
 )
 
 orders = spark.read.format("delta").load(orders_bronze_path)
+customer_ids = (
+    spark.read.format("delta").load(customers_bronze_path).select("customer_id")
+)
+product_ids = spark.read.format("delta").load(products_bronze_path).select("product_id")
 
 validation_result = validate_orders(
     orders,
     invalid_percentage_threshold=invalid_percentage_threshold,
+    customer_ids=customer_ids,
+    product_ids=product_ids,
 )
 
 invalid_orders = validation_result.quarantined_rows
@@ -84,7 +92,7 @@ write_step_metric(
     rows_written=valid_count,
     rows_quarantined=invalid_count,
     duration_seconds=round(time.time() - start_time, 2),
-    input_path=orders_bronze_path,
+    input_path=[orders_bronze_path, customers_bronze_path, products_bronze_path],
     output_path=orders_validated_path,
     status="success" if summary["threshold_passed"] else "failed",
     details={
