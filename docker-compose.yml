@@ -1,0 +1,186 @@
+services:
+  pipeline:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ecommerce-lakehouse:local
+    container_name: ecommerce-lakehouse-pipeline
+    working_dir: /app
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      STORAGE_MODE: ${STORAGE_MODE:-}
+      HOME: /tmp/lakehouse-home
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-local-dev-user}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-local-dev-password}
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: "1"
+      SPARK_LOCAL_IP: 127.0.0.1
+      SPARK_IVY_DIR: /opt/spark-ivy
+    volumes:
+      - .:/app
+    command: ["python", "run_pipeline.py"]
+
+  dashboard:
+    image: ecommerce-lakehouse:local
+    container_name: ecommerce-lakehouse-dashboard
+    working_dir: /app
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      STORAGE_MODE: ${STORAGE_MODE:-}
+      HOME: /tmp/lakehouse-home
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-local-dev-user}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-local-dev-password}
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: "1"
+      SPARK_IVY_DIR: /opt/spark-ivy
+      DASHBOARD_PORT: ${DASHBOARD_PORT:-8501}
+    ports:
+      - "${DASHBOARD_PORT:-8501}:${DASHBOARD_PORT:-8501}"
+    volumes:
+      - .:/app
+    command:
+      - streamlit
+      - run
+      - dashboard/monitoring_app.py
+      - --server.address=0.0.0.0
+      - --server.port=${DASHBOARD_PORT:-8501}
+
+  dagster:
+    image: ecommerce-lakehouse:local
+    container_name: ecommerce-lakehouse-dagster
+    profiles:
+      - orchestrator
+    working_dir: /app
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      STORAGE_MODE: ${STORAGE_MODE:-}
+      DAGSTER_HOME: /app/.dagster
+      HOME: /tmp/lakehouse-home
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-local-dev-user}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-local-dev-password}
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: "1"
+      SPARK_LOCAL_IP: 127.0.0.1
+      SPARK_IVY_DIR: /opt/spark-ivy
+      DAGSTER_PORT: ${DAGSTER_PORT:-3001}
+    ports:
+      - "${DAGSTER_PORT:-3001}:${DAGSTER_PORT:-3001}"
+    volumes:
+      - .:/app
+    command:
+      - dagster
+      - dev
+      - -h
+      - 0.0.0.0
+      - -p
+      - ${DAGSTER_PORT:-3001}
+      - -w
+      - workspace.yaml
+
+  metrics-exporter:
+    image: ecommerce-lakehouse:local
+    container_name: ecommerce-lakehouse-metrics-exporter
+    profiles:
+      - observability
+    working_dir: /app
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      STORAGE_MODE: ${STORAGE_MODE:-}
+      HOME: /tmp/lakehouse-home
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: "1"
+    ports:
+      - "9108:9108"
+    volumes:
+      - .:/app
+    command:
+      - python
+      - -m
+      - utils.prometheus_metrics
+      - --host
+      - 0.0.0.0
+      - --port
+      - "9108"
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: ecommerce-lakehouse-prometheus
+    profiles:
+      - observability
+    depends_on:
+      - metrics-exporter
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.console.libraries=/usr/share/prometheus/console_libraries
+      - --web.console.templates=/usr/share/prometheus/consoles
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+
+  grafana:
+    image: grafana/grafana:11.3.1
+    container_name: ecommerce-lakehouse-grafana
+    profiles:
+      - observability
+    depends_on:
+      - prometheus
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    container_name: ecommerce-lakehouse-minio
+    profiles:
+      - storage
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-local-dev-user}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-local-dev-password}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+
+  minio-setup:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    container_name: ecommerce-lakehouse-minio-setup
+    profiles:
+      - storage
+    depends_on:
+      - minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-local-dev-user}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-local-dev-password}
+    volumes:
+      - ./seed_data/raw:/seed/raw:ro
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        until mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"; do sleep 2; done
+        mc mb --ignore-existing local/lakehouse
+        mc cp --recursive /seed/raw/ local/lakehouse/raw/
+
+volumes:
+  prometheus-data:
+  grafana-data:
+  minio-data:

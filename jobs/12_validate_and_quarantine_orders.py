@@ -1,8 +1,10 @@
 import os
+import time
 
 from src.config import load_app_config, path_value, table_path
+from src.delta_utils import write_partitioned_delta
 from src.logger import get_logger
-from src.metrics import write_metric
+from src.metrics import write_metric, write_step_metric
 from src.order_validation import validate_orders, write_validation_summary
 from src.spark_session import get_spark
 
@@ -10,6 +12,7 @@ config = load_app_config()
 logger = get_logger("validate_orders")
 
 spark = get_spark("ValidateAndQuarantineOrders")
+start_time = time.time()
 
 orders_bronze_path = table_path(config, "orders_bronze")
 orders_quarantine_path = table_path(config, "orders_quarantine")
@@ -42,10 +45,10 @@ logger.info(f"Invalid rows: {invalid_count}")
 logger.info(f"Invalid row percentage: {invalid_percentage}%")
 
 if invalid_count > 0:
-    invalid_orders.write.format("delta").mode("overwrite").save(orders_quarantine_path)
+    write_partitioned_delta(invalid_orders, orders_quarantine_path)
     print(f"Invalid rows written to {orders_quarantine_path}")
 
-valid_orders.write.format("delta").mode("overwrite").save(orders_validated_path)
+write_partitioned_delta(valid_orders, orders_validated_path)
 print(f"Valid rows written to {orders_validated_path}")
 
 write_validation_summary(summary_path, summary)
@@ -61,8 +64,10 @@ write_metric(
         "run_id": run_id,
         "total_rows": total_count,
         "valid_rows": valid_count,
+        "invalid_count": invalid_count,
         "invalid_rows": invalid_count,
         "invalid_percentage": invalid_percentage,
+        "rule_failure_counts": summary["quarantine_reason_counts"],
         "invalid_percentage_threshold": invalid_percentage_threshold,
         "threshold_passed": summary["threshold_passed"],
         "quarantine_reason_counts": summary["quarantine_reason_counts"],
@@ -70,6 +75,21 @@ write_metric(
         "summary_path": summary_path,
         "quarantine_path": orders_quarantine_path,
         "validated_path": orders_validated_path,
+    },
+)
+
+write_step_metric(
+    "validate_orders",
+    rows_read=total_count,
+    rows_written=valid_count,
+    rows_quarantined=invalid_count,
+    duration_seconds=round(time.time() - start_time, 2),
+    input_path=orders_bronze_path,
+    output_path=orders_validated_path,
+    status="success" if summary["threshold_passed"] else "failed",
+    details={
+        "partition_columns": ["order_date"],
+        "quarantine_path": orders_quarantine_path,
     },
 )
 

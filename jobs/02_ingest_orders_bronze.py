@@ -1,32 +1,39 @@
-from pyspark.sql import SparkSession
-from delta import configure_spark_with_delta_pip
+import time
 
 from src.config import load_app_config, table_path
+from src.delta_utils import merge_orders_by_id
+from src.metrics import write_step_metric
+from src.spark_session import get_spark
 
 config = load_app_config()
 
-
-builder = (
-    SparkSession.builder.appName("IngestOrdersBronze")
-    .master("local[*]")
-    .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
-    .config(
-        "spark.sql.catalog.spark_catalog",
-        "org.apache.spark.sql.delta.catalog.DeltaCatalog",
-    )
-)
-
-spark = configure_spark_with_delta_pip(builder).getOrCreate()
+spark = get_spark("IngestOrdersBronze")
+start_time = time.time()
+orders_raw_path = table_path(config, "orders_raw")
+orders_bronze_path = table_path(config, "orders_bronze")
 
 df = (
     spark.read.option("header", True)
     .option("inferSchema", True)
-    .csv(table_path(config, "orders_raw"))
+    .csv(orders_raw_path)
 )
+rows_read = df.count()
 
-df.write.format("delta").mode("overwrite").save(table_path(config, "orders_bronze"))
+write_mode = merge_orders_by_id(spark, orders_bronze_path, df)
+rows_written = spark.read.format("delta").load(orders_bronze_path).count()
 
-print("Bronze orders table created")
-spark.read.format("delta").load(table_path(config, "orders_bronze")).show()
+print(f"Bronze orders table {write_mode}")
+spark.read.format("delta").load(orders_bronze_path).show()
+
+write_step_metric(
+    "ingest_orders_bronze",
+    rows_read=rows_read,
+    rows_written=rows_written,
+    rows_quarantined=0,
+    duration_seconds=round(time.time() - start_time, 2),
+    input_path=orders_raw_path,
+    output_path=orders_bronze_path,
+    details={"write_mode": write_mode, "merge_key": "order_id"},
+)
 
 spark.stop()

@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: Ecommerce Lakehouse
+    orgId: 1
+    folder: Lakehouse
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards

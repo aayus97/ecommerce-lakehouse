@@ -7,5 +7,9 @@ pyspark==4.0.0
 pytest==9.0.3
 pytest-cov==7.0.0
 PyYAML==6.0.3
+python-json-logger==4.1.0
+python-dotenv==1.2.1
 duckdb==1.4.3
 streamlit==1.56.0
+ruff>=0.8,<1.0
+detect-secrets==1.5.0

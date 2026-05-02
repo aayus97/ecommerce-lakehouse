@@ -1,5 +1,8 @@
 environment: test
 
+storage:
+  mode: local
+
 paths:
   raw: tests/fixtures
   bronze: /tmp/ecommerce-lakehouse-test/bronze

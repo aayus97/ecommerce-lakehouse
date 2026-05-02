@@ -1,5 +1,8 @@
 environment: dev
 
+storage:
+  mode: local
+
 paths:
   raw: data/raw
   bronze: data/bronze
