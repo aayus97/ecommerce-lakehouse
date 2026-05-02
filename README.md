@@ -12,6 +12,7 @@ A local Spark and Delta Lake project that models an ecommerce data pipeline with
 - `metrics/*.jsonl`: pipeline, step, data quality, and business metrics.
 - `dashboard/monitoring_app.py`: Streamlit dashboard for pipeline observability.
 - `docs/data_classification.md`: customer, order, and product classification notes.
+- `docs/wiki.md`: first-principles technical wiki and study roadmap for the repo.
 
 Generated lakehouse data and metrics are ignored by Git so code changes stay separate from runtime output.
 
