@@ -42,6 +42,29 @@ Validate the pipeline configuration without executing jobs:
 python run_pipeline.py --validate-only
 ```
 
+Run a date-window backfill across trusted layers:
+
+```bash
+python run_pipeline.py \
+  --start-date 2026-01-01 \
+  --end-date 2026-01-03 \
+  --steps validate_orders,silver_orders,gold_daily_sales,gold_revenue,collect_gold_metrics
+```
+
+Run only selected gold rebuilds from existing silver tables:
+
+```bash
+python run_pipeline.py \
+  --start-date 2026-01-01 \
+  --end-date 2026-01-03 \
+  --steps gold_daily_sales,gold_revenue,collect_gold_metrics
+```
+
+The selected steps run in the order defined by `configs/pipeline.yaml`.
+Dependencies inside the selected set are enforced. Dependencies outside the
+selected set are treated as pre-existing inputs, which lets operational backfills
+reuse already-built bronze, silver, or dimension tables.
+
 Run against MinIO object storage:
 
 ```bash

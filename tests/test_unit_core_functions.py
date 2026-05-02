@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import date
 
 import pytest
 
@@ -9,8 +10,12 @@ from run_pipeline import (
     EXIT_SUCCESS,
     EXIT_VALIDATION_FAILURE,
     classify_failure_exit_code,
+    dependencies_satisfied,
     extract_error_type,
     extract_stack_trace,
+    parse_date_arg,
+    parse_steps_arg,
+    selected_steps_or_error,
     validate_config,
 )
 from src.config import load_app_config, path_value, storage_mode, table_path
@@ -118,6 +123,50 @@ def test_validation_step_failures_use_validation_exit_code():
     assert (
         classify_failure_exit_code("silver_orders", "Spark failed") == EXIT_JOB_FAILURE
     )
+
+
+def test_backfill_cli_parsing_helpers_validate_dates_and_steps():
+    assert parse_date_arg("2026-01-02") == date(2026, 1, 2)
+    assert parse_steps_arg("silver_orders,gold_daily_sales") == [
+        "silver_orders",
+        "gold_daily_sales",
+    ]
+
+    with pytest.raises(Exception, match="YYYY-MM-DD"):
+        parse_date_arg("01-02-2026")
+
+
+def test_selected_step_validation_rejects_unknown_steps():
+    config = {
+        "pipeline": {
+            "steps": [
+                {"name": "silver_orders"},
+                {"name": "gold_daily_sales"},
+            ]
+        }
+    }
+
+    selected_steps, errors = selected_steps_or_error(
+        config,
+        ["silver_orders", "missing_step"],
+    )
+
+    assert selected_steps is None
+    assert errors == ["Unknown selected step: missing_step"]
+
+
+def test_selected_run_dependencies_only_require_selected_upstream_steps():
+    step = {
+        "name": "gold_daily_sales",
+        "depends_on": ["silver_orders", "silver_customers_products"],
+    }
+
+    assert dependencies_satisfied(step, set(), {"gold_daily_sales"}) == (True, None)
+    assert dependencies_satisfied(
+        step,
+        set(),
+        {"silver_orders", "gold_daily_sales"},
+    ) == (False, "silver_orders")
 
 
 def test_metric_writer_appends_jsonl_record(tmp_path, monkeypatch):

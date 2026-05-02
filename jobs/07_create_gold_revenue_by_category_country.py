@@ -1,6 +1,11 @@
 from pyspark.sql.functions import count, countDistinct, round as spark_round, sum
 import time
 
+from src.backfill import (
+    affected_order_dates,
+    backfill_metric_details,
+    filter_by_order_date,
+)
 from src.config import load_app_config, table_path
 from src.delta_utils import write_date_partitions_delta
 from src.metrics import write_step_metric
@@ -14,15 +19,11 @@ customers_silver_path = table_path(config, "customers_silver")
 products_silver_path = table_path(config, "products_silver")
 revenue_by_category_country_path = table_path(config, "revenue_by_category_country")
 
-orders = spark.read.format("delta").load(orders_silver_path)
+orders = filter_by_order_date(spark.read.format("delta").load(orders_silver_path))
 customers = spark.read.format("delta").load(customers_silver_path)
 products = spark.read.format("delta").load(products_silver_path)
 rows_read = orders.count() + customers.count() + products.count()
-affected_dates = [
-    row["order_date"].isoformat()
-    for row in orders.select("order_date").distinct().collect()
-    if row["order_date"] is not None
-]
+affected_dates = affected_order_dates(orders)
 
 joined = orders.join(customers, on="customer_id", how="left").join(
     products, on="product_id", how="left"
@@ -60,6 +61,7 @@ write_step_metric(
         "write_mode": write_mode,
         "partition_columns": ["order_date"],
         "affected_dates": affected_dates,
+        **backfill_metric_details(),
     },
 )
 

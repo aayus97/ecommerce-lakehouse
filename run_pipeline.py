@@ -6,7 +6,7 @@ import subprocess
 import sys
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 import yaml
 
@@ -218,6 +218,41 @@ def classify_failure_exit_code(step_name, failure_reason):
     return EXIT_JOB_FAILURE
 
 
+def parse_date_arg(value):
+    if not value:
+        return None
+
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            f"Date must use YYYY-MM-DD format: {value}"
+        ) from exc
+
+
+def parse_steps_arg(value):
+    if not value:
+        return None
+
+    steps = [step.strip() for step in value.split(",") if step.strip()]
+    if not steps:
+        raise argparse.ArgumentTypeError("--steps must include at least one step name")
+
+    return steps
+
+
+def selected_steps_or_error(config, selected_steps):
+    if not selected_steps:
+        return None, []
+
+    configured_steps = {step["name"] for step in config["pipeline"]["steps"]}
+    unknown_steps = sorted(set(selected_steps) - configured_steps)
+    if unknown_steps:
+        return None, [f"Unknown selected step: {step}" for step in unknown_steps]
+
+    return set(selected_steps), []
+
+
 def run_step(step, pipeline_name, run_id):
     name = step["name"]
     module = step["module"]
@@ -237,6 +272,8 @@ def run_step(step, pipeline_name, run_id):
             "step_module": module,
             "input_path": input_path,
             "output_path": output_path,
+            "backfill_start_date": os.getenv("BACKFILL_START_DATE"),
+            "backfill_end_date": os.getenv("BACKFILL_END_DATE"),
         }
         failure_context = {
             **log_context,
@@ -305,6 +342,8 @@ def run_step(step, pipeline_name, run_id):
                 "duration_seconds": duration_seconds,
                 "return_code": result.returncode,
                 "failure_reason": failure_reason,
+                "backfill_start_date": os.getenv("BACKFILL_START_DATE"),
+                "backfill_end_date": os.getenv("BACKFILL_END_DATE"),
             },
         )
 
@@ -346,10 +385,12 @@ def run_step(step, pipeline_name, run_id):
     }
 
 
-def dependencies_satisfied(step, completed_steps):
+def dependencies_satisfied(step, completed_steps, active_step_names=None):
     dependencies = step.get("depends_on", [])
 
     for dependency in dependencies:
+        if active_step_names is not None and dependency not in active_step_names:
+            continue
         if dependency not in completed_steps:
             return False, dependency
 
@@ -363,7 +404,26 @@ def main():
         action="store_true",
         help="Validate pipeline configuration without running pipeline steps",
     )
+    parser.add_argument(
+        "--start-date",
+        type=parse_date_arg,
+        help="Optional inclusive backfill start date in YYYY-MM-DD format",
+    )
+    parser.add_argument(
+        "--end-date",
+        type=parse_date_arg,
+        help="Optional inclusive backfill end date in YYYY-MM-DD format",
+    )
+    parser.add_argument(
+        "--steps",
+        type=parse_steps_arg,
+        help="Comma-separated pipeline step names to run, for example silver_orders,gold_daily_sales",
+    )
     args = parser.parse_args()
+
+    if args.start_date and args.end_date and args.start_date > args.end_date:
+        logger.error("Invalid date window: --start-date must be before --end-date")
+        return EXIT_VALIDATION_FAILURE
 
     try:
         config = load_config()
@@ -376,6 +436,15 @@ def main():
     if config_errors:
         for error in config_errors:
             logger.error(f"Invalid pipeline config: {error}")
+        return EXIT_VALIDATION_FAILURE
+
+    selected_step_names, step_selection_errors = selected_steps_or_error(
+        config,
+        args.steps,
+    )
+    if step_selection_errors:
+        for error in step_selection_errors:
+            logger.error(error)
         return EXIT_VALIDATION_FAILURE
 
     if args.validate_only:
@@ -391,10 +460,26 @@ def main():
 
     os.environ["PIPELINE_RUN_ID"] = run_id
     os.environ["PIPELINE_NAME"] = pipeline_name
+    if args.start_date:
+        os.environ["BACKFILL_START_DATE"] = args.start_date.isoformat()
+    else:
+        os.environ.pop("BACKFILL_START_DATE", None)
+    if args.end_date:
+        os.environ["BACKFILL_END_DATE"] = args.end_date.isoformat()
+    else:
+        os.environ.pop("BACKFILL_END_DATE", None)
 
     logger.info(
         "Starting pipeline",
-        extra={"pipeline_name": pipeline_name, "run_id": run_id},
+        extra={
+            "pipeline_name": pipeline_name,
+            "run_id": run_id,
+            "selected_steps": (
+                sorted(selected_step_names) if selected_step_names else None
+            ),
+            "backfill_start_date": os.getenv("BACKFILL_START_DATE"),
+            "backfill_end_date": os.getenv("BACKFILL_END_DATE"),
+        },
     )
 
     pipeline_start = time.time()
@@ -413,7 +498,15 @@ def main():
 
     for step in config["pipeline"]["steps"]:
         step_name = step["name"]
-        retries_configured += step.get("retries", 0)
+
+        if selected_step_names is not None and step_name not in selected_step_names:
+            logger.info(
+                "Skipping unselected step",
+                extra={"run_id": run_id, "step": step_name},
+            )
+            skipped_steps += 1
+            skipped_steps_list.append(step_name)
+            continue
 
         if not step.get("enabled", True):
             logger.info(
@@ -424,9 +517,12 @@ def main():
             skipped_steps_list.append(step_name)
             continue
 
+        retries_configured += step.get("retries", 0)
+
         dependency_ok, missing_dependency = dependencies_satisfied(
             step,
             completed_steps,
+            active_step_names=selected_step_names,
         )
 
         if not dependency_ok:
@@ -483,6 +579,11 @@ def main():
             "failure_reason": failure_reason,
             "retries_configured": retries_configured,
             "retries_used": retries_used,
+            "selected_steps": (
+                sorted(selected_step_names) if selected_step_names else None
+            ),
+            "backfill_start_date": os.getenv("BACKFILL_START_DATE"),
+            "backfill_end_date": os.getenv("BACKFILL_END_DATE"),
         },
     )
 
