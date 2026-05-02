@@ -11,11 +11,11 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 TEST_LAKEHOUSE_ROOT = Path("/tmp/ecommerce-lakehouse-test")
 PIPELINE_MODULES = [
     "jobs.02_ingest_orders_bronze",
+    "jobs.05_ingest_customers_products_bronze",
     "jobs.08_incremental_orders_bronze_merge",
     "jobs.09_check_delta_history",
     "jobs.12_validate_and_quarantine_orders",
     "jobs.03_transform_orders_silver",
-    "jobs.05_ingest_customers_products_bronze",
     "jobs.06_transform_customers_products_silver",
     "jobs.04_create_gold_sales_summary",
     "jobs.07_create_gold_revenue_by_category_country",

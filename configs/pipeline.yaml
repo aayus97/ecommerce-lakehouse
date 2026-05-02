@@ -33,6 +33,7 @@ pipeline:
       depends_on:
         - bronze_merge
         - check_delta_history
+        - ingest_customers_products_bronze
 
     - name: silver_orders
       module: jobs.03_transform_orders_silver
