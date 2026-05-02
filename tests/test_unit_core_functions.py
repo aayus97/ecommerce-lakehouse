@@ -115,7 +115,9 @@ def test_validation_step_failures_use_validation_exit_code():
         classify_failure_exit_code("validate_orders", "Orders data quality failed")
         == EXIT_VALIDATION_FAILURE
     )
-    assert classify_failure_exit_code("silver_orders", "Spark failed") == EXIT_JOB_FAILURE
+    assert (
+        classify_failure_exit_code("silver_orders", "Spark failed") == EXIT_JOB_FAILURE
+    )
 
 
 def test_metric_writer_appends_jsonl_record(tmp_path, monkeypatch):

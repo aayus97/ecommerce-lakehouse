@@ -2,7 +2,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 import time
 
-from pyspark.sql.functions import col, count, max as spark_max, round as spark_round, sum
+from pyspark.sql.functions import (
+    col,
+    count,
+    max as spark_max,
+    round as spark_round,
+    sum,
+)
 
 from src.config import load_app_config, table_path
 from src.logger import get_logger
@@ -117,7 +123,9 @@ write_metric(
 
 write_step_metric(
     "collect_gold_metrics",
-    rows_read=daily_sales.count() + revenue_by_category_country.count() + orders_silver.count(),
+    rows_read=daily_sales.count()
+    + revenue_by_category_country.count()
+    + orders_silver.count(),
     rows_written=2,
     rows_quarantined=0,
     duration_seconds=round(time.time() - start_time, 2),

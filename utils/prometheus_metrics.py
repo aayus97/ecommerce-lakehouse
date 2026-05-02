@@ -178,7 +178,9 @@ class MetricsHandler(BaseHTTPRequestHandler):
 
 def main():
     config = load_app_config()
-    parser = argparse.ArgumentParser(description="Serve lakehouse metrics for Prometheus")
+    parser = argparse.ArgumentParser(
+        description="Serve lakehouse metrics for Prometheus"
+    )
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=9108)
     parser.add_argument("--metrics-dir", default=path_value(config, "metrics"))

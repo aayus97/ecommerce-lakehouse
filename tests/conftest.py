@@ -24,7 +24,9 @@ PIPELINE_MODULES = [
 
 @pytest.fixture(scope="session")
 def spark():
-    session = SparkSession.builder.appName("LakehouseTests").master("local[1]").getOrCreate()
+    session = (
+        SparkSession.builder.appName("LakehouseTests").master("local[1]").getOrCreate()
+    )
     yield session
     session.stop()
 

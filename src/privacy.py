@@ -1,5 +1,12 @@
-from pyspark.sql.functions import col, concat, lit, regexp_replace, split, substring, when
-
+from pyspark.sql.functions import (
+    col,
+    concat,
+    lit,
+    regexp_replace,
+    split,
+    substring,
+    when,
+)
 
 PII_FIELDS = {"customer_name", "email"}
 

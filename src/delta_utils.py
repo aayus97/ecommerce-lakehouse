@@ -139,7 +139,9 @@ def merge_orders_by_id(spark, target_path: str, updates: DataFrame) -> str:
 
 def write_partitioned_delta(df: DataFrame, path: str, partition_columns=None):
     partition_columns = partition_columns or ORDER_PARTITION_COLUMNS
-    writer = df.write.format("delta").mode("overwrite").option("overwriteSchema", "true")
+    writer = (
+        df.write.format("delta").mode("overwrite").option("overwriteSchema", "true")
+    )
 
     if partition_columns:
         writer = writer.partitionBy(*partition_columns)

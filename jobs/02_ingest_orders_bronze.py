@@ -12,11 +12,7 @@ start_time = time.time()
 orders_raw_path = table_path(config, "orders_raw")
 orders_bronze_path = table_path(config, "orders_bronze")
 
-df = (
-    spark.read.option("header", True)
-    .option("inferSchema", True)
-    .csv(orders_raw_path)
-)
+df = spark.read.option("header", True).option("inferSchema", True).csv(orders_raw_path)
 rows_read = df.count()
 
 write_mode = merge_orders_by_id(spark, orders_bronze_path, df)

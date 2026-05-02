@@ -273,7 +273,11 @@ else:
         hide_index=True,
     )
 
-    row_cols = [c for c in ["rows_read", "rows_written", "rows_quarantined"] if c in step_metrics_df.columns]
+    row_cols = [
+        c
+        for c in ["rows_read", "rows_written", "rows_quarantined"]
+        if c in step_metrics_df.columns
+    ]
     if row_cols:
         st.bar_chart(
             step_metrics_df[["step", *row_cols]]
@@ -335,7 +339,9 @@ else:
     col1, col2 = st.columns(2)
 
     with col1:
-        st.metric("Latest Order Date", latest_freshness.get("latest_order_date", "Unknown"))
+        st.metric(
+            "Latest Order Date", latest_freshness.get("latest_order_date", "Unknown")
+        )
 
     with col2:
         st.metric(
@@ -402,13 +408,17 @@ business_df = run_df[~run_df["metric_name"].isin(SYSTEM_METRICS)].copy()
 if business_df.empty:
     st.info("No business or gold metrics found for this run.")
 else:
-    gold_sales_df = business_df[business_df["metric_name"] == "gold_sales_metrics"].copy()
+    gold_sales_df = business_df[
+        business_df["metric_name"] == "gold_sales_metrics"
+    ].copy()
     if not gold_sales_df.empty:
         latest_gold = gold_sales_df.sort_values("timestamp").iloc[-1]
         col1, col2, col3 = st.columns(3)
 
         with col1:
-            st.metric("Total Revenue", round(float(latest_gold.get("total_revenue", 0)), 2))
+            st.metric(
+                "Total Revenue", round(float(latest_gold.get("total_revenue", 0)), 2)
+            )
 
         with col2:
             st.metric("Total Orders", int(latest_gold.get("total_orders", 0)))
@@ -434,7 +444,9 @@ else:
             values = latest_gold.get(field)
             if isinstance(values, list) and values:
                 st.subheader(label)
-                st.dataframe(pd.DataFrame(values), use_container_width=True, hide_index=True)
+                st.dataframe(
+                    pd.DataFrame(values), use_container_width=True, hide_index=True
+                )
 
     metric_options = sorted(business_df["metric_name"].dropna().unique())
     selected_business_metric = st.selectbox("Business metric", metric_options)
