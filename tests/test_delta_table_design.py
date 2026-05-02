@@ -61,3 +61,10 @@ def test_orders_tables_are_partitioned_by_order_date(mini_pipeline_outputs):
         table_path = mini_pipeline_outputs[table_key]
 
         assert any(table_path.glob("order_date=*"))
+
+
+def test_gold_tables_are_partitioned_by_order_date(mini_pipeline_outputs):
+    for table_key in ("daily_sales_summary", "revenue_by_category_country"):
+        table_path = mini_pipeline_outputs[table_key]
+
+        assert any(table_path.glob("order_date=*"))

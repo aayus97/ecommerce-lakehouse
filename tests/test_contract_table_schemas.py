@@ -41,6 +41,7 @@ GOLD_CONTRACTS = {
         "daily_revenue": "DOUBLE",
     },
     "revenue_by_category_country": {
+        "order_date": "DATE",
         "country": "VARCHAR",
         "category": "VARCHAR",
         "total_orders": "BIGINT",

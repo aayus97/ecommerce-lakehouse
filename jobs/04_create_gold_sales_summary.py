@@ -2,6 +2,7 @@ from pyspark.sql.functions import sum, countDistinct, count
 import time
 
 from src.config import load_app_config, table_path
+from src.delta_utils import write_date_partitions_delta
 from src.metrics import write_step_metric
 from src.spark_session import get_spark
 
@@ -14,6 +15,11 @@ daily_sales_summary_path = table_path(config, "daily_sales_summary")
 
 silver = spark.read.format("delta").load(orders_silver_path)
 rows_read = silver.count()
+affected_dates = [
+    row["order_date"].isoformat()
+    for row in silver.select("order_date").distinct().collect()
+    if row["order_date"] is not None
+]
 
 gold = silver.groupBy("order_date").agg(
     count("order_id").alias("total_orders"),
@@ -21,7 +27,12 @@ gold = silver.groupBy("order_date").agg(
     sum("total_amount").alias("daily_revenue"),
 )
 
-gold.write.format("delta").mode("overwrite").save(daily_sales_summary_path)
+write_mode = write_date_partitions_delta(
+    spark,
+    gold,
+    daily_sales_summary_path,
+    affected_dates,
+)
 rows_written = spark.read.format("delta").load(daily_sales_summary_path).count()
 
 print("Gold daily sales summary created")
@@ -35,6 +46,11 @@ write_step_metric(
     duration_seconds=round(time.time() - start_time, 2),
     input_path=orders_silver_path,
     output_path=daily_sales_summary_path,
+    details={
+        "write_mode": write_mode,
+        "partition_columns": ["order_date"],
+        "affected_dates": affected_dates,
+    },
 )
 
 spark.stop()

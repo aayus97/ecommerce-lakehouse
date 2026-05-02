@@ -20,7 +20,7 @@ The primary business decisions are:
 The expected analytical outputs are:
 
 - `data/gold/daily_sales_summary`: daily sales totals, order counts, and unique customers.
-- `data/gold/revenue_by_category_country`: revenue, order counts, and unique customers grouped by country and product category.
+- `data/gold/revenue_by_category_country`: revenue, order counts, and unique customers grouped by order date, country, and product category.
 - `data/quarantine/orders`: invalid orders separated from trusted reporting tables for inspection and remediation.
 - `metrics/*.jsonl`: run, step, data quality, and business metrics used by the monitoring dashboard.
 

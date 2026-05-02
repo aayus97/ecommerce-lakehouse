@@ -26,8 +26,8 @@ The orchestrated pipeline is defined in `configs/pipeline.yaml`.
 5. `validate_orders`: validates bronze orders and quarantines invalid rows.
 6. `silver_orders`: creates the cleaned silver orders table.
 7. `silver_customers_products`: creates cleaned customer and product dimensions.
-8. `gold_daily_sales`: creates daily sales aggregates.
-9. `gold_revenue`: creates revenue aggregates by category and country.
+8. `gold_daily_sales`: creates partition-aware daily sales aggregates.
+9. `gold_revenue`: creates partition-aware revenue aggregates by order date, category, and country.
 10. `collect_gold_metrics`: writes business metrics for monitoring.
 
 The runner validates the config before execution, including required fields, duplicate step names, retry values, module existence, dependency ordering, and dependency cycles.
@@ -117,11 +117,13 @@ python run_pipeline.py
 
 Each run gets a unique `run_id`. Run summaries, retry attempts, step IO metrics, data quality metrics, freshness metrics, and business metrics are written to the configured metrics path, which defaults to `metrics/*.jsonl` in `dev`.
 
-Orders Bronze, validated orders, and Silver orders are partitioned by `order_date`.
+Orders Bronze, validated orders, Silver orders, and Gold tables are partitioned by `order_date`.
 Order writes deduplicate each batch by `order_id`, keep the newest `source_update_ts`,
 and merge only changed records so rerunning the same batch does not duplicate or corrupt
 the Delta tables. If upstream data does not provide `update_timestamp`, the pipeline
 uses ingestion time plus a business-column hash to make repeated identical batches stable.
+Gold jobs replace only the affected `order_date` partitions when rebuilding reporting
+tables, which avoids full table overwrites as data volume grows.
 
 ## Object Storage Mode
 

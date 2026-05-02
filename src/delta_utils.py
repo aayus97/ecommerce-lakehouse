@@ -149,6 +149,51 @@ def write_partitioned_delta(df: DataFrame, path: str, partition_columns=None):
     writer.save(path)
 
 
+def write_date_partitions_delta(
+    spark,
+    df: DataFrame,
+    path: str,
+    affected_dates: list[str],
+    partition_column: str = "order_date",
+) -> str:
+    if not affected_dates:
+        return "skipped"
+
+    if not DeltaTable.isDeltaTable(spark, path):
+        (
+            df.write.format("delta")
+            .mode("overwrite")
+            .option("overwriteSchema", "true")
+            .partitionBy(partition_column)
+            .save(path)
+        )
+        return "created"
+
+    delta_table = DeltaTable.forPath(spark, path)
+    detail = delta_table.detail().select("partitionColumns").collect()[0]
+    partition_columns = detail["partitionColumns"] or []
+
+    if partition_columns != [partition_column]:
+        (
+            df.write.format("delta")
+            .mode("overwrite")
+            .option("overwriteSchema", "true")
+            .partitionBy(partition_column)
+            .save(path)
+        )
+        return "repartitioned"
+
+    quoted_dates = ", ".join(f"'{date_value}'" for date_value in sorted(affected_dates))
+    replace_where = f"{partition_column} IN ({quoted_dates})"
+    (
+        df.write.format("delta")
+        .mode("overwrite")
+        .option("replaceWhere", replace_where)
+        .save(path)
+    )
+    return "replaced_partitions"
+
+
 def assert_delta_history_has_operations(
     spark,
     table_path: str,
