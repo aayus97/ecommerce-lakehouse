@@ -1,33 +1,36 @@
 environment: prod
 
+storage:
+  mode: s3
+
 paths:
-  raw: s3://your-bucket/ecommerce/raw
-  bronze: s3://your-bucket/ecommerce/bronze
-  silver: s3://your-bucket/ecommerce/silver
-  gold: s3://your-bucket/ecommerce/gold
-  quarantine: s3://your-bucket/ecommerce/quarantine
-  metrics: s3://your-bucket/ecommerce/metrics
+  raw: s3a://your-bucket/ecommerce/raw
+  bronze: s3a://your-bucket/ecommerce/bronze
+  silver: s3a://your-bucket/ecommerce/silver
+  gold: s3a://your-bucket/ecommerce/gold
+  quarantine: s3a://your-bucket/ecommerce/quarantine
+  metrics: s3a://your-bucket/ecommerce/metrics
 
 tables:
-  orders_raw: s3://your-bucket/ecommerce/raw/orders.csv
-  orders_batch_2: s3://your-bucket/ecommerce/raw/orders_batch_2.csv
-  orders_bad_batch: s3://your-bucket/ecommerce/raw/orders_bad_batch.csv
-  customers_raw: s3://your-bucket/ecommerce/raw/customers.csv
-  products_raw: s3://your-bucket/ecommerce/raw/products.csv
+  orders_raw: s3a://your-bucket/ecommerce/raw/orders.csv
+  orders_batch_2: s3a://your-bucket/ecommerce/raw/orders_batch_2.csv
+  orders_bad_batch: s3a://your-bucket/ecommerce/raw/orders_bad_batch.csv
+  customers_raw: s3a://your-bucket/ecommerce/raw/customers.csv
+  products_raw: s3a://your-bucket/ecommerce/raw/products.csv
 
-  orders_bronze: s3://your-bucket/ecommerce/bronze/orders
-  orders_validated: s3://your-bucket/ecommerce/bronze/orders_validated
-  orders_quarantine: s3://your-bucket/ecommerce/quarantine/orders
+  orders_bronze: s3a://your-bucket/ecommerce/bronze/orders
+  orders_validated: s3a://your-bucket/ecommerce/bronze/orders_validated
+  orders_quarantine: s3a://your-bucket/ecommerce/quarantine/orders
 
-  orders_silver: s3://your-bucket/ecommerce/silver/orders
-  customers_bronze: s3://your-bucket/ecommerce/bronze/customers
-  products_bronze: s3://your-bucket/ecommerce/bronze/products
-  customers_silver: s3://your-bucket/ecommerce/silver/customers
-  products_silver: s3://your-bucket/ecommerce/silver/products
+  orders_silver: s3a://your-bucket/ecommerce/silver/orders
+  customers_bronze: s3a://your-bucket/ecommerce/bronze/customers
+  products_bronze: s3a://your-bucket/ecommerce/bronze/products
+  customers_silver: s3a://your-bucket/ecommerce/silver/customers
+  products_silver: s3a://your-bucket/ecommerce/silver/products
 
-  daily_sales_summary: s3://your-bucket/ecommerce/gold/daily_sales_summary
-  revenue_by_category_country: s3://your-bucket/ecommerce/gold/revenue_by_category_country
+  daily_sales_summary: s3a://your-bucket/ecommerce/gold/daily_sales_summary
+  revenue_by_category_country: s3a://your-bucket/ecommerce/gold/revenue_by_category_country
 
 data_quality:
   invalid_percentage_threshold: 5.0
-  orders_validation_summary_path: s3://your-bucket/ecommerce/metrics/orders_validation_summary.json
+  orders_validation_summary_path: s3a://your-bucket/ecommerce/metrics/orders_validation_summary.json

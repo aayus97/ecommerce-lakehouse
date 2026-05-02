@@ -2,10 +2,29 @@ pipeline:
   name: ecommerce_lakehouse
 
   steps:
+    - name: ingest_orders_bronze
+      module: jobs.02_ingest_orders_bronze
+      enabled: true
+      retries: 1
+
+    - name: ingest_customers_products_bronze
+      module: jobs.05_ingest_customers_products_bronze
+      enabled: true
+      retries: 1
+
     - name: bronze_merge
       module: jobs.08_incremental_orders_bronze_merge
       enabled: true
       retries: 2
+      depends_on:
+        - ingest_orders_bronze
+
+    - name: check_delta_history
+      module: jobs.09_check_delta_history
+      enabled: true
+      retries: 1
+      depends_on:
+        - bronze_merge
 
     - name: validate_orders
       module: jobs.12_validate_and_quarantine_orders
@@ -13,6 +32,7 @@ pipeline:
       retries: 1
       depends_on:
         - bronze_merge
+        - check_delta_history
 
     - name: silver_orders
       module: jobs.03_transform_orders_silver
@@ -20,6 +40,13 @@ pipeline:
       retries: 1
       depends_on:
         - validate_orders
+
+    - name: silver_customers_products
+      module: jobs.06_transform_customers_products_silver
+      enabled: true
+      retries: 1
+      depends_on:
+        - ingest_customers_products_bronze
 
     - name: gold_daily_sales
       module: jobs.04_create_gold_sales_summary
@@ -34,6 +61,7 @@ pipeline:
       retries: 1
       depends_on:
         - silver_orders
+        - silver_customers_products
 
     - name: collect_gold_metrics
       module: jobs.14_collect_gold_metrics

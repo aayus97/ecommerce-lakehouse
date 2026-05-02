@@ -1,0 +1,14 @@
+title = "Ecommerce Lakehouse gitleaks config"
+
+[allowlist]
+description = "Allow documented placeholders and non-secret local examples."
+paths = [
+  '''\.env\.example$''',
+  '''docs/data_classification\.md$''',
+]
+
+regexes = [
+  '''change-me''',
+  '''example\.com''',
+  '''local-dev-(user|password)''',
+]

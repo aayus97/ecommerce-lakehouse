@@ -1,24 +1,19 @@
-from pyspark.sql import SparkSession
 from pyspark.sql.functions import sum, countDistinct, count
-from delta import configure_spark_with_delta_pip
+import time
 
 from src.config import load_app_config, table_path
+from src.metrics import write_step_metric
+from src.spark_session import get_spark
 
 config = load_app_config()
 
-builder = (
-    SparkSession.builder.appName("GoldSalesSummary")
-    .master("local[*]")
-    .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
-    .config(
-        "spark.sql.catalog.spark_catalog",
-        "org.apache.spark.sql.delta.catalog.DeltaCatalog",
-    )
-)
+spark = get_spark("GoldSalesSummary")
+start_time = time.time()
+orders_silver_path = table_path(config, "orders_silver")
+daily_sales_summary_path = table_path(config, "daily_sales_summary")
 
-spark = configure_spark_with_delta_pip(builder).getOrCreate()
-
-silver = spark.read.format("delta").load(table_path(config, "orders_silver"))
+silver = spark.read.format("delta").load(orders_silver_path)
+rows_read = silver.count()
 
 gold = silver.groupBy("order_date").agg(
     count("order_id").alias("total_orders"),
@@ -26,11 +21,20 @@ gold = silver.groupBy("order_date").agg(
     sum("total_amount").alias("daily_revenue"),
 )
 
-gold.write.format("delta").mode("overwrite").save(
-    table_path(config, "daily_sales_summary")
-)
+gold.write.format("delta").mode("overwrite").save(daily_sales_summary_path)
+rows_written = spark.read.format("delta").load(daily_sales_summary_path).count()
 
 print("Gold daily sales summary created")
-spark.read.format("delta").load(table_path(config, "daily_sales_summary")).show()
+spark.read.format("delta").load(daily_sales_summary_path).show()
+
+write_step_metric(
+    "gold_daily_sales",
+    rows_read=rows_read,
+    rows_written=rows_written,
+    rows_quarantined=0,
+    duration_seconds=round(time.time() - start_time, 2),
+    input_path=orders_silver_path,
+    output_path=daily_sales_summary_path,
+)
 
 spark.stop()

@@ -1,21 +1,9 @@
-from pyspark.sql import SparkSession
-from delta import configure_spark_with_delta_pip
-
 from src.config import load_app_config, table_path
+from src.spark_session import get_spark
 
 config = load_app_config()
 
-builder = (
-    SparkSession.builder.appName("EcommerceLakehouseSmokeTest")
-    .master("local[*]")
-    .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
-    .config(
-        "spark.sql.catalog.spark_catalog",
-        "org.apache.spark.sql.delta.catalog.DeltaCatalog",
-    )
-)
-
-spark = configure_spark_with_delta_pip(builder).getOrCreate()
+spark = get_spark("EcommerceLakehouseSmokeTest")
 
 data = [
     (1, "Alice", 120.50),

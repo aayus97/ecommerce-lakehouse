@@ -1,0 +1,101 @@
+# Production Readiness
+
+This page summarizes the current readiness posture, dashboard evidence,
+limitations, and future work. The broader service expectations are captured in
+`docs/production_readiness_plan.md`.
+
+## Current Readiness
+
+| Capability | Status | Evidence |
+| --- | --- | --- |
+| Layered lakehouse | Implemented | Bronze, quarantine, silver, and gold Delta paths are configured in `configs/*.yaml`. |
+| Idempotent order upserts | Implemented | `src/delta_utils.py` merges by `order_id`, `source_update_ts`, and `record_hash`. |
+| Pipeline orchestration | Implemented | `run_pipeline.py` validates config, executes dependencies, retries steps, and emits metrics. |
+| Dagster orchestration surface | Implemented | Assets, retries, and schedule definitions live in `orchestration/`. |
+| Data quality quarantine | Implemented | Invalid orders are separated into `orders_quarantine` with reason fields. |
+| Contract tests | Implemented | Raw and gold schemas are tested in `tests/test_contract_table_schemas.py`. |
+| Observability metrics | Implemented | JSONL metrics, Streamlit dashboard, Prometheus exporter, and Grafana dashboard are present. |
+| Security hygiene | Implemented locally | `.env`, generated data, metrics, and logs are excluded from Git; secret scanning targets exist. |
+| CI quality checks | Implemented | `.github/workflows/ci.yml` runs Ruff, Black, pytest, and pipeline config validation on pull requests and pushes. |
+| Production secrets | Not productionized | Local `.env` and Compose defaults need replacement with a managed secret store. |
+| CD/deployment automation | Not present | Promotion, deployment, and production secret scanning are still manual or future work. |
+
+## Dashboard Screenshots
+
+Dashboard assets live in `docs/assets/`. The current assets are static
+documentation screenshots generated from the local JSONL metrics files so the
+repository can show the expected monitoring surfaces without committing runtime
+data.
+
+![Dashboard run overview](assets/dashboard_run_overview.png)
+
+![Dashboard quality and business metrics](assets/dashboard_quality_business.png)
+
+![Grafana observability dashboard](assets/grafana_observability.png)
+
+| Screenshot | Purpose |
+| --- | --- |
+| `docs/assets/dashboard_run_overview.png` | Latest run status, duration, step summary, and failure surface. |
+| `docs/assets/dashboard_quality_business.png` | Data quality, freshness, and business metric panels. |
+| `docs/assets/grafana_observability.png` | Prometheus/Grafana view of exported lakehouse metrics. |
+
+Refresh screenshots after running:
+
+```bash
+make pipeline
+make dashboard
+```
+
+Then open `http://localhost:8501`, capture the dashboard panels, and save them
+under `docs/assets/`. For Grafana, run:
+
+```bash
+make observability
+```
+
+Then open `http://localhost:3000` and capture the `Ecommerce Lakehouse
+Observability` dashboard.
+
+## Operational SLO Targets
+
+| Target | Initial value |
+| --- | --- |
+| Pipeline cadence | Daily batch |
+| Gold freshness | Within 2 hours of pipeline start |
+| Monitoring availability | Within 15 minutes of pipeline completion |
+| Invalid row threshold | 5 percent by default |
+| Failed run definition | Any required enabled step fails after retries or a dependency is missing |
+
+## Known Limitations
+
+- The project uses synthetic local seed data, not a live source system.
+- CI quality checks exist for linting, formatting, tests, and config validation,
+  but deployment automation and CI secret scanning are not implemented yet.
+- Secrets are modeled with `.env` and environment variables, not a managed
+  secret service.
+- Silver customer and product tables are overwritten rather than merged with
+  slowly changing dimension semantics.
+- Referential validation exists in the validation library but the current
+  validation job does not pass customer and product reference tables.
+- Gold tables are full overwrites, which is simple and reliable for the current
+  scale but not optimized for large production datasets.
+- Dashboard screenshots require a manual refresh workflow.
+- Access control, audit policy, retention policy, and backup/restore procedures
+  are not fully implemented.
+
+## Future Work
+
+1. Extend CI/CD with automated secret scanning, artifact publishing, and
+   deployment or promotion workflows.
+2. Wire referential validation into `jobs/12_validate_and_quarantine_orders.py`
+   using bronze or silver customer/product IDs.
+3. Add managed secrets for MinIO or cloud object storage credentials.
+4. Add SCD handling or idempotent merges for customer and product dimensions.
+5. Add incremental gold rebuilds or partition-aware overwrite for larger data.
+6. Add data retention and vacuum policy for Delta tables and quarantine.
+7. Add automated dashboard screenshot generation in CI or a release script.
+8. Add alerting thresholds for failed runs, stale gold tables, and high invalid
+   row percentages.
+9. Add backfill documentation and a parameterized date-range backfill command.
+10. Add a production deployment guide for cloud object storage and a managed
+    orchestration service.

@@ -1,10 +1,15 @@
-from pathlib import Path
 import json
+import sys
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
-from src.config import load_app_config, path_value
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from src.config import load_app_config, path_value  # noqa: E402
 
 config = load_app_config()
 METRICS_DIR = Path(path_value(config, "metrics"))
@@ -12,7 +17,9 @@ METRICS_DIR = Path(path_value(config, "metrics"))
 SYSTEM_METRICS = {
     "pipeline_steps",
     "pipeline_runs",
+    "step_metrics",
     "orders_data_quality",
+    "freshness_metrics",
 }
 
 
@@ -128,7 +135,9 @@ run_df = filtered_df[filtered_df["run_id"] == selected_run_id].copy()
 
 pipeline_run_df = run_df[run_df["metric_name"] == "pipeline_runs"].copy()
 steps_df = run_df[run_df["metric_name"] == "pipeline_steps"].copy()
+step_metrics_df = run_df[run_df["metric_name"] == "step_metrics"].copy()
 quality_df = run_df[run_df["metric_name"] == "orders_data_quality"].copy()
+freshness_df = run_df[run_df["metric_name"] == "freshness_metrics"].copy()
 failed_records = run_df[
     run_df.get("status", pd.Series(dtype=str)).astype(str).str.lower() == "failed"
 ]
@@ -177,11 +186,16 @@ with col4:
 
 if not pipeline_run_df.empty:
     summary_cols = [
+        "started_at",
+        "ended_at",
         "total_steps",
         "successful_steps",
         "failed_steps",
         "skipped_steps",
         "failed_step",
+        "failure_reason",
+        "retries_configured",
+        "retries_used",
         "skipped_steps_list",
     ]
     available_summary_cols = [c for c in summary_cols if c in pipeline_run_df.columns]
@@ -204,10 +218,14 @@ else:
         "step",
         "module",
         "status",
+        "started_at",
+        "ended_at",
         "attempt",
         "max_attempts",
+        "retries_used",
         "duration_seconds",
         "return_code",
+        "failure_reason",
     ]
     available_columns = [c for c in columns_to_show if c in steps_df.columns]
     steps_view = steps_df[available_columns].sort_values("timestamp")
@@ -229,6 +247,43 @@ else:
         duration_df = steps_df[["step", "duration_seconds"]].dropna()
         if not duration_df.empty:
             st.bar_chart(duration_df.set_index("step"))
+
+st.subheader("Step IO Metrics")
+
+if step_metrics_df.empty:
+    st.info("No step IO metrics found for this run.")
+else:
+    columns_to_show = [
+        "timestamp",
+        "step",
+        "status",
+        "rows_read",
+        "rows_written",
+        "rows_quarantined",
+        "duration_seconds",
+        "input_path",
+        "output_path",
+        "quarantine_path",
+    ]
+    available_columns = [c for c in columns_to_show if c in step_metrics_df.columns]
+
+    st.dataframe(
+        step_metrics_df[available_columns].sort_values("timestamp"),
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    row_cols = [
+        c
+        for c in ["rows_read", "rows_written", "rows_quarantined"]
+        if c in step_metrics_df.columns
+    ]
+    if row_cols:
+        st.bar_chart(
+            step_metrics_df[["step", *row_cols]]
+            .dropna(how="all", subset=row_cols)
+            .set_index("step")
+        )
 
 st.subheader("Orders Data Quality")
 
@@ -263,6 +318,38 @@ else:
         st.success("No invalid rows found.")
 
     st.dataframe(quality_df.sort_values("timestamp"), use_container_width=True)
+
+    rule_counts = latest_quality.get("rule_failure_counts")
+    if not isinstance(rule_counts, dict):
+        rule_counts = latest_quality.get("quarantine_reason_counts")
+
+    if isinstance(rule_counts, dict) and rule_counts:
+        st.subheader("Rule-Level Failures")
+        rule_df = pd.DataFrame(
+            [{"rule": rule, "failures": count} for rule, count in rule_counts.items()]
+        ).sort_values("failures", ascending=False)
+        st.bar_chart(rule_df.set_index("rule"))
+
+st.subheader("Freshness")
+
+if freshness_df.empty:
+    st.info("No freshness metrics found for this run.")
+else:
+    latest_freshness = freshness_df.sort_values("timestamp").iloc[-1]
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.metric(
+            "Latest Order Date", latest_freshness.get("latest_order_date", "Unknown")
+        )
+
+    with col2:
+        st.metric(
+            "Gold Last Updated",
+            latest_freshness.get("gold_table_last_updated_timestamp", "Unknown"),
+        )
+
+    st.dataframe(freshness_df.sort_values("timestamp"), use_container_width=True)
 
 quality_history_df = filtered_df[
     filtered_df["metric_name"] == "orders_data_quality"
@@ -321,6 +408,46 @@ business_df = run_df[~run_df["metric_name"].isin(SYSTEM_METRICS)].copy()
 if business_df.empty:
     st.info("No business or gold metrics found for this run.")
 else:
+    gold_sales_df = business_df[
+        business_df["metric_name"] == "gold_sales_metrics"
+    ].copy()
+    if not gold_sales_df.empty:
+        latest_gold = gold_sales_df.sort_values("timestamp").iloc[-1]
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.metric(
+                "Total Revenue", round(float(latest_gold.get("total_revenue", 0)), 2)
+            )
+
+        with col2:
+            st.metric("Total Orders", int(latest_gold.get("total_orders", 0)))
+
+        with col3:
+            average_order_value = latest_gold.get("average_order_value")
+            if pd.isna(average_order_value):
+                total_orders = float(latest_gold.get("total_orders", 0) or 0)
+                total_revenue = float(latest_gold.get("total_revenue", 0) or 0)
+                average_order_value = (
+                    round(total_revenue / total_orders, 2) if total_orders else 0
+                )
+
+            st.metric(
+                "Average Order Value",
+                round(float(average_order_value), 2),
+            )
+
+        for label, field in [
+            ("Top Countries", "top_countries"),
+            ("Top Categories", "top_categories"),
+        ]:
+            values = latest_gold.get(field)
+            if isinstance(values, list) and values:
+                st.subheader(label)
+                st.dataframe(
+                    pd.DataFrame(values), use_container_width=True, hide_index=True
+                )
+
     metric_options = sorted(business_df["metric_name"].dropna().unique())
     selected_business_metric = st.selectbox("Business metric", metric_options)
     selected_business_df = business_df[

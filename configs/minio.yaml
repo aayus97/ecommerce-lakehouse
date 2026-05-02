@@ -1,0 +1,42 @@
+environment: minio
+
+storage:
+  mode: minio
+  bucket: lakehouse
+  endpoint: http://minio:9000
+  access_key:
+  secret_key:
+  path_style_access: true
+  ssl_enabled: false
+
+paths:
+  raw: s3a://lakehouse/raw
+  bronze: s3a://lakehouse/bronze
+  silver: s3a://lakehouse/silver
+  gold: s3a://lakehouse/gold
+  quarantine: s3a://lakehouse/quarantine
+  metrics: metrics
+
+tables:
+  orders_raw: s3a://lakehouse/raw/orders.csv
+  orders_batch_2: s3a://lakehouse/raw/orders_batch_2.csv
+  orders_bad_batch: s3a://lakehouse/raw/orders_bad_batch.csv
+  customers_raw: s3a://lakehouse/raw/customers.csv
+  products_raw: s3a://lakehouse/raw/products.csv
+
+  orders_bronze: s3a://lakehouse/bronze/orders
+  orders_validated: s3a://lakehouse/bronze/orders_validated
+  orders_quarantine: s3a://lakehouse/quarantine/orders
+
+  orders_silver: s3a://lakehouse/silver/orders
+  customers_bronze: s3a://lakehouse/bronze/customers
+  products_bronze: s3a://lakehouse/bronze/products
+  customers_silver: s3a://lakehouse/silver/customers
+  products_silver: s3a://lakehouse/silver/products
+
+  daily_sales_summary: s3a://lakehouse/gold/daily_sales_summary
+  revenue_by_category_country: s3a://lakehouse/gold/revenue_by_category_country
+
+data_quality:
+  invalid_percentage_threshold: 5.0
+  orders_validation_summary_path: metrics/orders_validation_summary.json

@@ -16,7 +16,7 @@ def test_mini_pipeline_creates_bronze_silver_and_gold_outputs(mini_pipeline_outp
         query_delta_dir(
             connection,
             mini_pipeline_outputs["bronze_orders"],
-            "SELECT count(*)",
+            "SELECT count(DISTINCT order_id)",
         )[0][0]
         == 6
     )

@@ -12,4 +12,6 @@ data/quarantine/
 metrics/*.jsonl
 *.crc
 .env
+.env.*
+!.env.example
 .dagster/

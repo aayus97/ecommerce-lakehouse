@@ -30,7 +30,7 @@ REQUIRED_PATHS = [
 
 
 def test_all_env_configs_have_required_tables():
-    for env in ["dev", "test", "prod"]:
+    for env in ["dev", "test", "prod", "minio"]:
         config = load_app_config(env)
 
         for table in REQUIRED_TABLES:
@@ -38,8 +38,16 @@ def test_all_env_configs_have_required_tables():
 
 
 def test_all_env_configs_have_required_paths():
-    for env in ["dev", "test", "prod"]:
+    for env in ["dev", "test", "prod", "minio"]:
         config = load_app_config(env)
 
         for path_name in REQUIRED_PATHS:
             assert path_name in config["paths"]
+
+
+def test_minio_config_uses_s3a_lakehouse_paths():
+    config = load_app_config("minio")
+
+    assert config["storage"]["mode"] == "minio"
+    assert config["paths"]["bronze"] == "s3a://lakehouse/bronze"
+    assert config["tables"]["orders_bronze"] == "s3a://lakehouse/bronze/orders"
