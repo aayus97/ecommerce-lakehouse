@@ -1,0 +1,120 @@
+{
+  "all_quarantine_reason_counts": {
+    "invalid_quantity": 203,
+    "invalid_status": 204,
+    "invalid_unit_price": 205,
+    "unknown_customer_id": 205,
+    "unknown_product_id": 183
+  },
+  "expectations": [
+    {
+      "level": "schema",
+      "name": "required_order_columns_present",
+      "reason": "missing_required_column"
+    },
+    {
+      "level": "uniqueness",
+      "name": "order_id_unique",
+      "reason": "duplicate_order_id"
+    },
+    {
+      "level": "null",
+      "name": "order_id_not_null",
+      "reason": "missing_order_id"
+    },
+    {
+      "level": "null",
+      "name": "customer_id_not_null",
+      "reason": "missing_customer_id"
+    },
+    {
+      "level": "null",
+      "name": "product_id_not_null",
+      "reason": "missing_product_id"
+    },
+    {
+      "level": "range",
+      "name": "quantity_positive",
+      "reason": "invalid_quantity"
+    },
+    {
+      "level": "range",
+      "name": "unit_price_non_negative",
+      "reason": "invalid_unit_price"
+    },
+    {
+      "level": "business_rule",
+      "name": "status_allowed",
+      "reason": "invalid_status"
+    },
+    {
+      "level": "business_rule",
+      "name": "order_date_not_future",
+      "reason": "future_order_date"
+    },
+    {
+      "level": "referential",
+      "name": "customer_id_exists",
+      "reason": "unknown_customer_id"
+    },
+    {
+      "level": "referential",
+      "name": "product_id_exists",
+      "reason": "unknown_product_id"
+    },
+    {
+      "level": "business_rule",
+      "name": "invalid_row_percentage_below_threshold",
+      "reason": "invalid_percentage_threshold_exceeded"
+    }
+  ],
+  "invalid_percentage": 1.0,
+  "invalid_percentage_threshold": 5.0,
+  "invalid_rows": 1000,
+  "levels": {
+    "business_rule": {
+      "reasons": [
+        "invalid_status",
+        "future_order_date"
+      ]
+    },
+    "null": {
+      "reasons": [
+        "missing_order_id",
+        "missing_customer_id",
+        "missing_product_id"
+      ]
+    },
+    "range": {
+      "reasons": [
+        "invalid_quantity",
+        "invalid_unit_price"
+      ]
+    },
+    "referential": {
+      "reasons": [
+        "unknown_customer_id",
+        "unknown_product_id"
+      ]
+    },
+    "schema": {
+      "errors": [],
+      "passed": true
+    },
+    "uniqueness": {
+      "reasons": [
+        "duplicate_order_id"
+      ]
+    }
+  },
+  "quarantine_reason_counts": {
+    "invalid_quantity": 203,
+    "invalid_status": 204,
+    "invalid_unit_price": 205,
+    "unknown_customer_id": 205,
+    "unknown_product_id": 183
+  },
+  "threshold_passed": true,
+  "total_rows": 100000,
+  "valid_rows": 99000
+}

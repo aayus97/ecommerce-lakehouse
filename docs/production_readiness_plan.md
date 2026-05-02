@@ -116,7 +116,8 @@ Prod-like is for realistic operational rehearsal before production.
 Expected behavior:
 
 - Uses the same pipeline structure and step ordering as production.
-- Uses larger generated datasets for orders, customers, and products.
+- Uses larger generated datasets for orders, customers, and products via
+  `make realistic-data` or `make pipeline-realistic`.
 - Exercises incremental bronze merge, validation, quarantine, silver transforms, gold aggregates, metrics, and dashboard visibility.
 - Tests retry behavior, dependency handling, and failure reporting.
 - Measures runtime, output size, invalid row percentage, and gold freshness.

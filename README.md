@@ -62,6 +62,7 @@ make test         # Run pytest in the pipeline container
 make lint         # Run ruff in the pipeline container
 make security     # Run detect-secrets and gitleaks checks
 make pipeline     # Seed raw CSVs and run the full pipeline
+make pipeline-realistic # Generate larger synthetic raw data and run the pipeline
 make pipeline-minio # Run the pipeline against MinIO object storage
 make dashboard    # Start Streamlit at http://localhost:8501
 make dagster      # Start Dagster at http://localhost:3001
@@ -142,6 +143,49 @@ Gold jobs replace only the affected `order_date` partitions when rebuilding repo
 tables, which avoids full table overwrites as data volume grows.
 Backfill date windows are passed to bronze, validation, silver, and gold order
 jobs so selected reruns only process matching `order_date` records.
+
+## Test At Realistic Volume
+
+Small fixtures prove correctness, but they do not prove operational behavior.
+From first principles, a lakehouse is a file and partition system as much as it
+is transformation code: runtime depends on row counts, distinct partition
+values, merge volume, output file layout, and how quickly dashboards can read
+the emitted metrics. Use generated data to rehearse those production forces
+without committing large files or real customer data.
+
+Generate larger deterministic raw inputs under `data/raw`:
+
+```bash
+make realistic-data
+```
+
+Then run the normal pipeline against those generated CSVs:
+
+```bash
+make pipeline-realistic
+```
+
+By default this writes 100,000 unique orders across 90 order-date partitions,
+10,000 customers, 1,000 products, a second incremental order batch, and about
+1% invalid orders for quarantine metrics. Tune the generator directly when you
+want a heavier or narrower test:
+
+```bash
+docker compose run --rm pipeline python scripts/generate_synthetic_raw_data.py \
+  --orders 1000000 \
+  --customers 100000 \
+  --products 10000 \
+  --days 180 \
+  --invalid-rate 1.5
+```
+
+After a realistic run, inspect:
+
+- Spark step durations in `metrics/pipeline_metrics.jsonl`;
+- `rows_read`, `rows_written`, and `rows_quarantined` by step;
+- Delta partition directories under `data/bronze`, `data/silver`, and `data/gold`;
+- the number and size of Parquet files per `order_date` partition;
+- dashboard load time with `make dashboard`.
 
 ## Object Storage Mode
 

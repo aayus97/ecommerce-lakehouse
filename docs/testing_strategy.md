@@ -53,6 +53,18 @@ Fixtures live in `tests/fixtures/` and are intentionally small. They include:
 Seed data for local pipeline runs lives in `seed_data/raw/` and is copied to
 `data/raw` by `make seed-data` and `make pipeline`.
 
+Large synthetic raw data is generated on demand by
+`scripts/generate_synthetic_raw_data.py` and written to `data/raw`. These files
+are intentionally ignored by Git. The generator keeps schemas aligned with the
+small fixtures while adding enough row count, date spread, incremental updates,
+and controlled invalid records to measure runtime, partition layout,
+small-file behavior, and dashboard responsiveness.
+
+```bash
+make realistic-data
+make pipeline-realistic
+```
+
 ## Acceptance Criteria
 
 A documentation or pipeline change is ready when:

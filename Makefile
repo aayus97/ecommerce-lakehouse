@@ -4,7 +4,7 @@ LOCAL_UID ?= $(shell id -u)
 LOCAL_GID ?= $(shell id -g)
 COMPOSE := LOCAL_UID=$(LOCAL_UID) LOCAL_GID=$(LOCAL_GID) docker compose
 
-.PHONY: install test lint security secrets-detect secrets-gitleaks pipeline pipeline-minio dashboard dagster seed-data dagster-home observability minio minio-seed down
+.PHONY: install test lint security secrets-detect secrets-gitleaks pipeline pipeline-realistic pipeline-minio dashboard dagster seed-data realistic-data dagster-home observability minio minio-seed down
 
 install:
 	$(COMPOSE) build pipeline
@@ -12,6 +12,9 @@ install:
 seed-data:
 	mkdir -p data/raw
 	cp seed_data/raw/*.csv data/raw/
+
+realistic-data:
+	$(COMPOSE) run --rm pipeline python scripts/generate_synthetic_raw_data.py
 
 dagster-home:
 	mkdir -p .dagster
@@ -36,6 +39,9 @@ secrets-gitleaks:
 	fi
 
 pipeline: install seed-data
+	$(COMPOSE) run --rm pipeline python run_pipeline.py
+
+pipeline-realistic: install realistic-data
 	$(COMPOSE) run --rm pipeline python run_pipeline.py
 
 pipeline-minio: install minio-seed
