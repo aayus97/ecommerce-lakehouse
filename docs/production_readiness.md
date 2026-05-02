@@ -76,8 +76,9 @@ Observability` dashboard.
   but deployment automation and CI secret scanning are not implemented yet.
 - Secrets are modeled with `.env` and environment variables, not a managed
   secret service.
-- Referential validation exists in the validation library but the current
-  validation job does not pass customer and product reference tables.
+- Referential validation is implemented using bronze customer and product
+  reference tables; production deployments still need a formal policy for
+  reference-data refresh cadence, versioning, and auditability.
 - Gold tables use partition-aware overwrites by `order_date`; production
   deployments still need formal retention policy.
 - Dashboard screenshots require a manual refresh workflow.
@@ -88,8 +89,8 @@ Observability` dashboard.
 
 1. Extend CI/CD with automated secret scanning, artifact publishing, and
    deployment or promotion workflows.
-2. Wire referential validation into `jobs/12_validate_and_quarantine_orders.py`
-   using bronze or silver customer/product IDs.
+2. Add stronger reference-data governance for customer and product IDs, including
+   refresh cadence, versioned snapshots, and audit reporting for lookup changes.
 3. Add managed secrets for MinIO or cloud object storage credentials.
 4. Add incremental gold rebuilds or partition-aware overwrite for larger data.
 5. Add data retention and vacuum policy for Delta tables and quarantine.
