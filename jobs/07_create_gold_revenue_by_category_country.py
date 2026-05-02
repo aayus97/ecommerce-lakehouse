@@ -20,8 +20,8 @@ products_silver_path = table_path(config, "products_silver")
 revenue_by_category_country_path = table_path(config, "revenue_by_category_country")
 
 orders = filter_by_order_date(spark.read.format("delta").load(orders_silver_path))
-customers = spark.read.format("delta").load(customers_silver_path)
-products = spark.read.format("delta").load(products_silver_path)
+customers = spark.read.format("delta").load(customers_silver_path).filter("is_current")
+products = spark.read.format("delta").load(products_silver_path).filter("is_current")
 rows_read = orders.count() + customers.count() + products.count()
 affected_dates = affected_order_dates(orders)
 

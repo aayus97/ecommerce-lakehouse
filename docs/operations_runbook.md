@@ -134,8 +134,9 @@ make pipeline
 ```
 
 Order ingestion is idempotent by `order_id` and `record_hash`, so rerunning the
-same input batch should not duplicate orders. Silver and gold jobs overwrite
-their outputs from the current trusted inputs.
+same input batch should not duplicate orders. Silver customer and product
+dimensions merge changes as SCD Type 2 records, and gold jobs rebuild from the
+current trusted silver inputs.
 
 5. Confirm recovery.
 
@@ -187,9 +188,30 @@ Open:
 
 - Metrics exporter: `http://localhost:9108/metrics`
 - Prometheus: `http://localhost:9090`
+- Alertmanager: `http://localhost:9093`
 - Grafana: `http://localhost:3000`
 
 Grafana is provisioned with the `Ecommerce Lakehouse Observability` dashboard.
+Prometheus loads alert rules from `observability/prometheus/alerts.yml` and
+sends firing alerts to Alertmanager using
+`observability/alertmanager/alertmanager.yml`.
+
+## Alert Reference
+
+| Alert | Meaning | First checks |
+| --- | --- | --- |
+| `LakehousePipelineRunFailed` | The latest pipeline run did not complete successfully. | Inspect `metrics/pipeline_runs.jsonl`, then inspect the failed step in `metrics/pipeline_steps.jsonl`. |
+| `LakehouseHighInvalidOrderPercentage` | The latest data quality run exceeded the invalid order threshold. | Inspect quarantine rows and `metrics/orders_data_quality.jsonl`. |
+| `LakehouseGoldFreshnessStale` | Gold table freshness is more than 2 hours old. | Confirm the latest pipeline run completed and `collect_gold_metrics` ran. |
+| `LakehousePipelineMetricsMissing` | No pipeline run metrics are available to scrape. | Run the pipeline and confirm `metrics/pipeline_runs.jsonl` exists. |
+| `LakehouseDataQualityMetricsMissing` | No order quality metrics are available to scrape. | Confirm `validate_orders` ran and wrote `metrics/orders_data_quality.jsonl`. |
+| `LakehouseGoldMetricsMissing` | No gold business metrics are available to scrape. | Confirm `collect_gold_metrics` ran and wrote `metrics/gold_sales_metrics.jsonl`. |
+| `LakehouseMetricsExporterDown` | Prometheus cannot scrape the exporter. | Confirm the `metrics-exporter` container is running and `http://localhost:9108/metrics` responds. |
+
+For local notification testing, open Alertmanager at `http://localhost:9093`.
+The default receiver stores alerts in the Alertmanager UI only. To send alerts
+externally, replace or extend the `local-observability` receiver with a Slack,
+email, PagerDuty, webhook, or cloud monitoring receiver.
 
 ## Stop Services
 

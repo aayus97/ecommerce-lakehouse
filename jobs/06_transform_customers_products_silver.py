@@ -2,6 +2,7 @@ from pyspark.sql.functions import col, to_date, lower, trim
 import time
 
 from src.config import load_app_config, table_path
+from src.delta_utils import merge_dimension_scd2
 from src.metrics import write_step_metric
 from src.privacy import mask_customer_columns
 from src.spark_session import get_spark
@@ -24,7 +25,19 @@ customers_silver = (
     .withColumn("signup_date", to_date(col("signup_date")))
 )
 
-customers_silver.write.format("delta").mode("overwrite").save(customers_silver_path)
+customers_write_mode = merge_dimension_scd2(
+    spark,
+    customers_silver_path,
+    customers_silver,
+    key_column="customer_id",
+    business_columns=[
+        "customer_id",
+        "customer_name",
+        "email",
+        "country",
+        "signup_date",
+    ],
+)
 customers_rows_written = spark.read.format("delta").load(customers_silver_path).count()
 
 
@@ -37,7 +50,18 @@ products_silver = (
     .withColumn("unit_cost", col("unit_cost").cast("double"))
 )
 
-products_silver.write.format("delta").mode("overwrite").save(products_silver_path)
+products_write_mode = merge_dimension_scd2(
+    spark,
+    products_silver_path,
+    products_silver,
+    key_column="product_id",
+    business_columns=[
+        "product_id",
+        "product_name",
+        "category",
+        "unit_cost",
+    ],
+)
 products_rows_written = spark.read.format("delta").load(products_silver_path).count()
 
 print("Silver customers:")
@@ -54,6 +78,12 @@ write_step_metric(
     duration_seconds=round(time.time() - start_time, 2),
     input_path=[customers_bronze_path, products_bronze_path],
     output_path=[customers_silver_path, products_silver_path],
+    details={
+        "customers_write_mode": customers_write_mode,
+        "products_write_mode": products_write_mode,
+        "dimension_strategy": "scd_type_2",
+        "current_record_column": "is_current",
+    },
 )
 
 spark.stop()

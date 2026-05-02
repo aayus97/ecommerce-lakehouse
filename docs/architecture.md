@@ -95,7 +95,7 @@ same underlying Spark job modules.
 | Raw | Source CSV inputs copied from `seed_data/raw` for local runs. | `data/raw/*.csv` |
 | Bronze | Delta-preserved source data with order upserts and technical metadata. | `data/bronze/orders`, `data/bronze/customers`, `data/bronze/products` |
 | Quarantine | Invalid orders isolated before silver and gold processing. | `data/quarantine/orders` |
-| Silver | Typed, cleaned, reporting-ready facts and dimensions. | `data/silver/orders`, `data/silver/customers`, `data/silver/products` |
+| Silver | Typed, cleaned facts plus SCD Type 2 customer and product dimensions. | `data/silver/orders`, `data/silver/customers`, `data/silver/products` |
 | Gold | Business aggregates used by dashboards and regression tests. | `data/gold/daily_sales_summary`, `data/gold/revenue_by_category_country` |
 | Metrics | Operational, quality, freshness, and business metric events. | `metrics/*.jsonl` |
 

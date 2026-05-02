@@ -2,6 +2,7 @@ from delta.tables import DeltaTable
 from pyspark.sql import DataFrame, Window
 from pyspark.sql.functions import (
     col,
+    coalesce,
     concat_ws,
     current_date,
     current_timestamp,
@@ -28,6 +29,15 @@ ORDER_METADATA_COLUMNS = [
     "record_hash",
 ]
 ORDER_PARTITION_COLUMNS = ["order_date"]
+DIMENSION_METADATA_COLUMNS = [
+    "source_update_ts",
+    "ingestion_ts",
+    "ingestion_date",
+    "record_hash",
+    "valid_from",
+    "valid_to",
+    "is_current",
+]
 
 
 def normalize_orders_for_delta(
@@ -132,6 +142,150 @@ def merge_orders_by_id(spark, target_path: str, updates: DataFrame) -> str:
             set=update_assignments,
         )
         .whenNotMatchedInsertAll()
+        .execute()
+    )
+    return "merged"
+
+
+def normalize_dimension_for_scd2(
+    dimension: DataFrame,
+    key_column: str,
+    business_columns: list[str],
+    default_source_update_ts=None,
+) -> DataFrame:
+    update_timestamp_candidates = [
+        column
+        for column in ("update_timestamp", "updated_at", "source_update_ts")
+        if column in dimension.columns
+    ]
+    if update_timestamp_candidates:
+        source_update_ts = to_timestamp(col(update_timestamp_candidates[0]))
+    elif default_source_update_ts:
+        source_update_ts = to_timestamp(lit(default_source_update_ts))
+    else:
+        source_update_ts = current_timestamp()
+
+    hash_columns = [
+        coalesce(col(column).cast("string"), lit("<NULL>"))
+        for column in business_columns
+        if column in dimension.columns
+    ]
+
+    normalized = (
+        dimension.withColumn("source_update_ts", source_update_ts)
+        .withColumn("ingestion_ts", current_timestamp())
+        .withColumn("ingestion_date", current_date())
+        .withColumn("record_hash", sha2(concat_ws("||", *hash_columns), 256))
+        .withColumn("valid_from", col("source_update_ts"))
+        .withColumn("valid_to", lit(None).cast("timestamp"))
+        .withColumn("is_current", lit(True))
+    )
+    selected_columns = [
+        column
+        for column in [*business_columns, *DIMENSION_METADATA_COLUMNS]
+        if column in normalized.columns
+    ]
+    return normalized.select(*selected_columns)
+
+
+def latest_dimension_by_key(dimension: DataFrame, key_column: str) -> DataFrame:
+    window = Window.partitionBy(key_column).orderBy(
+        col("source_update_ts").desc_nulls_last(),
+        col("ingestion_ts").desc_nulls_last(),
+        col("record_hash").desc_nulls_last(),
+    )
+
+    return (
+        dimension.withColumn("_dimension_rank", row_number().over(window))
+        .filter(col("_dimension_rank") == 1)
+        .drop("_dimension_rank")
+    )
+
+
+def prepare_dimension_for_scd2(
+    dimension: DataFrame,
+    key_column: str,
+    business_columns: list[str],
+) -> DataFrame:
+    return latest_dimension_by_key(
+        normalize_dimension_for_scd2(dimension, key_column, business_columns),
+        key_column,
+    )
+
+
+def merge_dimension_scd2(
+    spark,
+    target_path: str,
+    updates: DataFrame,
+    key_column: str,
+    business_columns: list[str],
+) -> str:
+    prepared_updates = prepare_dimension_for_scd2(
+        updates,
+        key_column,
+        business_columns,
+    )
+
+    if not DeltaTable.isDeltaTable(spark, target_path):
+        prepared_updates.write.format("delta").mode("overwrite").save(target_path)
+        return "created"
+
+    target = spark.read.format("delta").load(target_path)
+    if set(DIMENSION_METADATA_COLUMNS) - set(target.columns):
+        existing_dimension = normalize_dimension_for_scd2(
+            target,
+            key_column,
+            business_columns,
+            default_source_update_ts="1970-01-01 00:00:00",
+        )
+        migrated_dimension = latest_dimension_by_key(
+            existing_dimension.unionByName(prepared_updates, allowMissingColumns=True),
+            key_column,
+        )
+        migrated_dimension.cache()
+        migrated_dimension.count()
+        (
+            migrated_dimension.write.format("delta")
+            .mode("overwrite")
+            .option("overwriteSchema", "true")
+            .save(target_path)
+        )
+        migrated_dimension.unpersist()
+        return "migrated"
+
+    current_target = target.filter(col("is_current"))
+    changed_updates = (
+        prepared_updates.alias("source")
+        .join(current_target.alias("target"), on=key_column, how="inner")
+        .filter(col("source.record_hash") != col("target.record_hash"))
+        .select("source.*")
+    )
+
+    staged_updates = prepared_updates.withColumn("merge_key", col(key_column))
+    staged_inserts = changed_updates.withColumn(
+        "merge_key",
+        lit(None).cast(prepared_updates.schema[key_column].dataType),
+    )
+    staged_changes = staged_updates.unionByName(staged_inserts)
+    insert_assignments = {
+        column: f"source.{column}" for column in prepared_updates.columns
+    }
+
+    (
+        DeltaTable.forPath(spark, target_path)
+        .alias("target")
+        .merge(
+            staged_changes.alias("source"),
+            f"target.{key_column} = source.merge_key AND target.is_current = true",
+        )
+        .whenMatchedUpdate(
+            condition="source.record_hash <> target.record_hash",
+            set={
+                "valid_to": "source.valid_from",
+                "is_current": "false",
+            },
+        )
+        .whenNotMatchedInsert(values=insert_assignments)
         .execute()
     )
     return "merged"

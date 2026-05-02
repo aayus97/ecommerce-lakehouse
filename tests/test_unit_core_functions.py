@@ -1,8 +1,10 @@
 import json
 import logging
 from datetime import date
+from pathlib import Path
 
 import pytest
+import yaml
 
 from run_pipeline import (
     EXIT_CONFIG_FAILURE,
@@ -259,3 +261,82 @@ def test_prometheus_export_includes_pipeline_quality_and_business_metrics():
         'lakehouse_business_metric{metric="total_revenue",pipeline="unit-test",'
         'run_id="run-1"} 42.0'
     ) in text
+
+
+def test_prometheus_export_includes_alert_friendly_latest_metrics():
+    text = generate_prometheus_text(
+        [
+            {
+                "timestamp": "2026-01-01T00:00:00+00:00",
+                "metric_name": "pipeline_runs",
+                "pipeline_name": "unit-test",
+                "run_id": "old-failed-run",
+                "status": "failed",
+                "failed_step": "silver_orders",
+            },
+            {
+                "timestamp": "2026-01-01T01:00:00+00:00",
+                "metric_name": "pipeline_runs",
+                "pipeline_name": "unit-test",
+                "run_id": "new-success-run",
+                "status": "success",
+            },
+            {
+                "timestamp": "2026-01-01T01:01:00+00:00",
+                "metric_name": "orders_data_quality",
+                "pipeline_name": "unit-test",
+                "run_id": "new-success-run",
+                "invalid_percentage": 6.5,
+            },
+        ]
+    )
+
+    assert (
+        'lakehouse_latest_pipeline_run_failed{pipeline="unit-test",'
+        'run_id="new-success-run",status="success"} 0'
+    ) in text
+    assert (
+        'lakehouse_latest_orders_invalid_percentage{pipeline="unit-test",'
+        'run_id="new-success-run"} 6.5'
+    ) in text
+    assert 'lakehouse_metrics_records_total{metric_name="pipeline_runs"} 2' in text
+    assert 'lakehouse_metrics_records_total{metric_name="gold_sales_metrics"} 0' in text
+
+
+def test_prometheus_alert_rules_are_configured():
+    alerts_path = Path("observability/prometheus/alerts.yml")
+    config = yaml.safe_load(alerts_path.read_text())
+    alert_names = {
+        rule["alert"]
+        for group in config["groups"]
+        for rule in group["rules"]
+        if "alert" in rule
+    }
+
+    assert {
+        "LakehousePipelineRunFailed",
+        "LakehouseHighInvalidOrderPercentage",
+        "LakehouseGoldFreshnessStale",
+        "LakehousePipelineMetricsMissing",
+        "LakehouseDataQualityMetricsMissing",
+        "LakehouseGoldMetricsMissing",
+        "LakehouseMetricsExporterDown",
+    } <= alert_names
+
+
+def test_prometheus_is_configured_to_send_alerts_to_alertmanager():
+    config = yaml.safe_load(Path("observability/prometheus/prometheus.yml").read_text())
+
+    targets = config["alerting"]["alertmanagers"][0]["static_configs"][0]["targets"]
+
+    assert "alertmanager:9093" in targets
+
+
+def test_alertmanager_local_receiver_is_configured():
+    config = yaml.safe_load(
+        Path("observability/alertmanager/alertmanager.yml").read_text()
+    )
+    receiver_names = {receiver["name"] for receiver in config["receivers"]}
+
+    assert config["route"]["receiver"] == "local-observability"
+    assert "local-observability" in receiver_names

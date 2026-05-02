@@ -115,6 +115,7 @@ services:
     profiles:
       - observability
     depends_on:
+      - alertmanager
       - metrics-exporter
     command:
       - --config.file=/etc/prometheus/prometheus.yml
@@ -125,7 +126,22 @@ services:
       - "9090:9090"
     volumes:
       - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
       - prometheus-data:/prometheus
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: ecommerce-lakehouse-alertmanager
+    profiles:
+      - observability
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./observability/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
 
   grafana:
     image: grafana/grafana:11.3.1
@@ -181,6 +197,7 @@ services:
         mc cp --recursive /seed/raw/ local/lakehouse/raw/
 
 volumes:
+  alertmanager-data:
   prometheus-data:
   grafana-data:
   minio-data:
