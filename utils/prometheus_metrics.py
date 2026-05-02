@@ -11,6 +11,15 @@ if str(REPO_ROOT) not in sys.path:
 
 from src.config import load_app_config, path_value  # noqa: E402
 
+EXPECTED_METRIC_NAMES = [
+    "pipeline_runs",
+    "pipeline_steps",
+    "step_metrics",
+    "orders_data_quality",
+    "gold_sales_metrics",
+    "freshness_metrics",
+]
+
 
 def load_jsonl_metrics(metrics_dir):
     records = []
@@ -60,10 +69,29 @@ def timestamp_seconds(value):
     return parsed.timestamp()
 
 
+def record_sort_timestamp(record):
+    for field in ("timestamp", "ended_at", "started_at"):
+        timestamp = timestamp_seconds(record.get(field))
+        if timestamp is not None:
+            return timestamp
+    return 0
+
+
+def latest_record(records, metric_name):
+    candidates = [
+        record for record in records if record.get("metric_name") == metric_name
+    ]
+    if not candidates:
+        return None
+    return max(candidates, key=record_sort_timestamp)
+
+
 def generate_prometheus_text(records):
     lines = [
         "# HELP lakehouse_pipeline_run_status Pipeline run status by run ID.",
         "# TYPE lakehouse_pipeline_run_status gauge",
+        "# HELP lakehouse_latest_pipeline_run_failed Latest pipeline run failed flag.",
+        "# TYPE lakehouse_latest_pipeline_run_failed gauge",
         "# HELP lakehouse_pipeline_run_duration_seconds Pipeline run duration.",
         "# TYPE lakehouse_pipeline_run_duration_seconds gauge",
         "# HELP lakehouse_pipeline_step_duration_seconds Pipeline step duration.",
@@ -74,11 +102,44 @@ def generate_prometheus_text(records):
         "# TYPE lakehouse_orders_invalid_count gauge",
         "# HELP lakehouse_orders_invalid_percentage Invalid order percentage.",
         "# TYPE lakehouse_orders_invalid_percentage gauge",
+        "# HELP lakehouse_latest_orders_invalid_percentage Latest invalid order percentage.",
+        "# TYPE lakehouse_latest_orders_invalid_percentage gauge",
         "# HELP lakehouse_business_metric Gold-layer business metric.",
         "# TYPE lakehouse_business_metric gauge",
         "# HELP lakehouse_freshness_timestamp_seconds Data freshness timestamp.",
         "# TYPE lakehouse_freshness_timestamp_seconds gauge",
+        "# HELP lakehouse_metrics_records_total Number of JSONL metric records by type.",
+        "# TYPE lakehouse_metrics_records_total gauge",
     ]
+
+    metric_counts = {metric_name: 0 for metric_name in EXPECTED_METRIC_NAMES}
+    for record in records:
+        metric_name = record.get("metric_name")
+        if metric_name in metric_counts:
+            metric_counts[metric_name] += 1
+
+    for metric_name, count_value in metric_counts.items():
+        lines.append(
+            "lakehouse_metrics_records_total"
+            f"{labels(metric_name=metric_name)} {count_value}"
+        )
+
+    latest_pipeline_run = latest_record(records, "pipeline_runs")
+    if latest_pipeline_run:
+        status = str(latest_pipeline_run.get("status") or "unknown")
+        lines.append(
+            "lakehouse_latest_pipeline_run_failed"
+            f"{labels(pipeline=latest_pipeline_run.get('pipeline_name'), run_id=latest_pipeline_run.get('run_id'), status=status, failed_step=latest_pipeline_run.get('failed_step'))} "
+            f"{0 if status == 'success' else 1}"
+        )
+
+    latest_quality = latest_record(records, "orders_data_quality")
+    if latest_quality:
+        lines.append(
+            "lakehouse_latest_orders_invalid_percentage"
+            f"{labels(pipeline=latest_quality.get('pipeline_name'), run_id=latest_quality.get('run_id'))} "
+            f"{number(latest_quality.get('invalid_percentage'))}"
+        )
 
     for record in records:
         metric_name = record.get("metric_name")

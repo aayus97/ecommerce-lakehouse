@@ -1,0 +1,65 @@
+groups:
+  - name: ecommerce-lakehouse-alerts
+    rules:
+      - alert: LakehousePipelineRunFailed
+        expr: lakehouse_latest_pipeline_run_failed == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Latest ecommerce lakehouse pipeline run failed"
+          description: "Latest run {{ $labels.run_id }} failed. Failed step: {{ $labels.failed_step }}."
+
+      - alert: LakehouseHighInvalidOrderPercentage
+        expr: lakehouse_latest_orders_invalid_percentage > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Invalid order percentage is above threshold"
+          description: "Latest order validation run {{ $labels.run_id }} has {{ $value }} percent invalid orders."
+
+      - alert: LakehouseGoldFreshnessStale
+        expr: time() - max(lakehouse_freshness_timestamp_seconds{metric="gold_table_last_updated_timestamp"}) > 7200
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Gold tables are stale"
+          description: "Gold table freshness timestamp is more than 2 hours old."
+
+      - alert: LakehousePipelineMetricsMissing
+        expr: lakehouse_metrics_records_total{metric_name="pipeline_runs"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pipeline run metrics are missing"
+          description: "Prometheus can scrape the exporter, but no pipeline_runs JSONL metrics have been found."
+
+      - alert: LakehouseDataQualityMetricsMissing
+        expr: lakehouse_metrics_records_total{metric_name="orders_data_quality"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Order data quality metrics are missing"
+          description: "No orders_data_quality JSONL metrics have been found."
+
+      - alert: LakehouseGoldMetricsMissing
+        expr: lakehouse_metrics_records_total{metric_name="gold_sales_metrics"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Gold business metrics are missing"
+          description: "No gold_sales_metrics JSONL metrics have been found."
+
+      - alert: LakehouseMetricsExporterDown
+        expr: up{job="ecommerce-lakehouse"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Lakehouse metrics exporter is down"
+          description: "Prometheus cannot scrape the ecommerce lakehouse metrics exporter."

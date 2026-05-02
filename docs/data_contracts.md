@@ -147,6 +147,13 @@ The quarantine table includes the original order columns plus:
 | `email` | string | Lowercased and trimmed. Mask before display. |
 | `country` | string | Trimmed. |
 | `signup_date` | date | Cast in silver. |
+| `source_update_ts` | timestamp | Source change timestamp, or ingestion time when the source omits one. |
+| `ingestion_ts` | timestamp | Pipeline ingestion timestamp for the dimension version. |
+| `ingestion_date` | date | Pipeline ingestion date for the dimension version. |
+| `record_hash` | string | Hash of business columns used for idempotent SCD Type 2 change detection. |
+| `valid_from` | timestamp | Start timestamp for this dimension version. |
+| `valid_to` | timestamp | End timestamp for this dimension version; null for current records. |
+| `is_current` | boolean | True for the active dimension version used by current gold joins. |
 
 ### `products_silver`
 
@@ -156,6 +163,13 @@ The quarantine table includes the original order columns plus:
 | `product_name` | string | Trimmed. |
 | `category` | string | Trimmed. |
 | `unit_cost` | double | Cast in silver. |
+| `source_update_ts` | timestamp | Source change timestamp, or ingestion time when the source omits one. |
+| `ingestion_ts` | timestamp | Pipeline ingestion timestamp for the dimension version. |
+| `ingestion_date` | date | Pipeline ingestion date for the dimension version. |
+| `record_hash` | string | Hash of business columns used for idempotent SCD Type 2 change detection. |
+| `valid_from` | timestamp | Start timestamp for this dimension version. |
+| `valid_to` | timestamp | End timestamp for this dimension version; null for current records. |
+| `is_current` | boolean | True for the active dimension version used by current gold joins. |
 
 ## Gold Tables
 

@@ -10,11 +10,14 @@ limitations, and future work. The broader service expectations are captured in
 | --- | --- | --- |
 | Layered lakehouse | Implemented | Bronze, quarantine, silver, and gold Delta paths are configured in `configs/*.yaml`. |
 | Idempotent order upserts | Implemented | `src/delta_utils.py` merges by `order_id`, `source_update_ts`, and `record_hash`. |
+| Slowly changing dimensions | Implemented | Customer and product silver tables use SCD Type 2 metadata with `is_current`, `valid_from`, and `valid_to`. |
 | Pipeline orchestration | Implemented | `run_pipeline.py` validates config, executes dependencies, retries steps, supports selected-step backfills, and emits metrics. |
 | Dagster orchestration surface | Implemented | Assets, retries, and schedule definitions live in `orchestration/`. |
 | Data quality quarantine | Implemented | Invalid orders are separated into `orders_quarantine` with reason fields. |
 | Contract tests | Implemented | Raw and gold schemas are tested in `tests/test_contract_table_schemas.py`. |
 | Observability metrics | Implemented | JSONL metrics, Streamlit dashboard, Prometheus exporter, and Grafana dashboard are present. |
+| Alerting rules | Implemented locally | Prometheus alert rules cover failed runs, stale gold freshness, high invalid percentage, missing metrics, and exporter scrape failure. |
+| Alert routing | Implemented locally | Alertmanager is wired into Compose with a local UI receiver; external notification receivers are future work. |
 | Security hygiene | Implemented locally | `.env`, generated data, metrics, and logs are excluded from Git; secret scanning targets exist. |
 | CI quality checks | Implemented | `.github/workflows/ci.yml` runs Ruff, Black, pytest, and pipeline config validation on pull requests and pushes. |
 | Production secrets | Not productionized | Local `.env` and Compose defaults need replacement with a managed secret store. |
@@ -73,8 +76,6 @@ Observability` dashboard.
   but deployment automation and CI secret scanning are not implemented yet.
 - Secrets are modeled with `.env` and environment variables, not a managed
   secret service.
-- Silver customer and product tables are overwritten rather than merged with
-  slowly changing dimension semantics.
 - Referential validation exists in the validation library but the current
   validation job does not pass customer and product reference tables.
 - Gold tables use partition-aware overwrites by `order_date`; production
@@ -90,13 +91,12 @@ Observability` dashboard.
 2. Wire referential validation into `jobs/12_validate_and_quarantine_orders.py`
    using bronze or silver customer/product IDs.
 3. Add managed secrets for MinIO or cloud object storage credentials.
-4. Add SCD handling or idempotent merges for customer and product dimensions.
-5. Add incremental gold rebuilds or partition-aware overwrite for larger data.
-6. Add data retention and vacuum policy for Delta tables and quarantine.
-7. Add automated dashboard screenshot generation in CI or a release script.
-8. Add alerting thresholds for failed runs, stale gold tables, and high invalid
-   row percentages.
-9. Add richer backfill audit reports and operator approval records for unusual
+4. Add incremental gold rebuilds or partition-aware overwrite for larger data.
+5. Add data retention and vacuum policy for Delta tables and quarantine.
+6. Add automated dashboard screenshot generation in CI or a release script.
+7. Connect Alertmanager to an external receiver such as Slack, email, PagerDuty,
+   a webhook, or a cloud monitoring service.
+8. Add richer backfill audit reports and operator approval records for unusual
    late-arriving data corrections.
-10. Add a production deployment guide for cloud object storage and a managed
+9. Add a production deployment guide for cloud object storage and a managed
     orchestration service.

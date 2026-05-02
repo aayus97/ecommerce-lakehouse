@@ -70,7 +70,7 @@ make dagster      # Start Dagster at http://localhost:3001
 Optional supporting services:
 
 ```bash
-make observability # Metrics exporter, Prometheus, and Grafana
+make observability # Metrics exporter, Prometheus, Alertmanager, and Grafana
 make minio         # MinIO object-store sandbox
 make minio-seed    # Create the lakehouse bucket and upload raw seed CSVs
 make down          # Stop Compose services
@@ -135,6 +135,9 @@ Order writes deduplicate each batch by `order_id`, keep the newest `source_updat
 and merge only changed records so rerunning the same batch does not duplicate or corrupt
 the Delta tables. If upstream data does not provide `update_timestamp`, the pipeline
 uses ingestion time plus a business-column hash to make repeated identical batches stable.
+Customer and product Silver dimensions use SCD Type 2 merges with `is_current`,
+`valid_from`, and `valid_to` metadata so changed dimension attributes retain
+history without duplicating unchanged reruns.
 Gold jobs replace only the affected `order_date` partitions when rebuilding reporting
 tables, which avoids full table overwrites as data volume grows.
 Backfill date windows are passed to bronze, validation, silver, and gold order
@@ -241,7 +244,20 @@ Open:
 
 - Metrics exporter: `http://localhost:9108/metrics`
 - Prometheus: `http://localhost:9090`
+- Alertmanager: `http://localhost:9093`
 - Grafana: `http://localhost:3000`
+
+Prometheus loads alert rules from `observability/prometheus/alerts.yml` for:
+
+- failed latest pipeline run;
+- stale gold table freshness;
+- invalid order percentage above 5 percent;
+- missing pipeline, quality, or gold metric records;
+- metrics exporter scrape failure.
+
+Firing alerts are sent to Alertmanager through `observability/alertmanager/alertmanager.yml`.
+The local default receiver keeps alerts visible in the Alertmanager UI without
+requiring Slack, email, or PagerDuty credentials.
 
 Grafana is provisioned with:
 
